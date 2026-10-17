@@ -201,6 +201,9 @@ const RANK = { doing: 0, todo: 1, done: 2 }, PR = { high: 0, med: 1, low: 2 };
 const byRank = (a, b) => RANK[a.status] - RANK[b.status] || (a.due || '9').localeCompare(b.due || '9') || PR[a.priority || 'med'] - PR[b.priority || 'med'];
 const hasKids = it => items.some(i => i.parent === it.id || (it.type === 'epic' && i.epic === it.id));
 const togBtn = it => hasKids(it) ? `<button class="tog ${collapsed.has(it.id) ? '' : 'open'}" data-act="tog" data-id="${it.id}" aria-label="${collapsed.has(it.id) ? 'Expand' : 'Collapse'}"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>` : '<span class="tog"></span>';
+// options for a "parent task" picker: any top-level non-epic task
+const parentOpts = sel => `<option value="">No parent task</option>${items.filter(i => i.type !== 'epic' && !i.parent).map(i => `<option value="${i.id}" ${i.id === sel ? 'selected' : ''}>${esc(i.title)}</option>`).join('')}`;
+const parentOf = id => id ? { parent: id, epic: byId(id).epic } : {}; // a subtask takes its parent's epic
 const subs = id => items.filter(i => i.parent === id);
 const progress = it => { const k = subs(it.id); return k.length ? [k.filter(x => x.status === 'done').length, k.length] : null; };
 const epicOf = it => it.type === 'epic' ? it.title : (epicItem(it.epic)?.title || 'No epic');
@@ -294,6 +297,7 @@ function listHtml() {
       ? `<div class="card" style="padding:12px"><input id="nt" placeholder="Title" aria-label="Title">
          <div class="row"><select id="ntype" aria-label="Type">${TYPES.map(t => `<option value="${t}" ${t === 'task' ? 'selected' : ''}>${t}</option>`).join('')}</select>
          <select id="nepic" aria-label="Epic"><option value="">No epic</option>${epics.map(e => `<option value="${e.id}">${esc(e.title)}</option>`).join('')}</select></div>
+         <select id="nparent" aria-label="Parent task">${parentOpts()}</select>
          <div class="row"><label>Start<input id="ns" type="date"></label><label>Due<input id="nd" type="date"></label></div>
          <div class="row"><button data-act="add">Cancel</button><button class="primary" data-act="create">Add</button></div></div>`
       : '') +
@@ -328,6 +332,7 @@ function ganttHtml() {
   const form = gnew ? `<div class="card" style="padding:12px"><div class="lbl">New · ${range(gnew.s, gnew.e)}</div><input id="gt" placeholder="Title" aria-label="Title">
     <div class="row"><select id="gtype" aria-label="Type">${['task', 'bug', 'improvement'].map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select>
     <select id="gepic" aria-label="Epic"><option value="">No epic</option>${epics.map(e => opt(e.id, esc(e.title), e.id === gfilter)).join('')}</select></div>
+    <select id="gparent" aria-label="Parent task">${parentOpts()}</select>
     <div class="row"><button data-act="gcancel">Cancel</button><button class="primary" data-act="gcreate">Add</button></div></div>` : '';
   return header('<button class="link" data-act="today">Today</button><button class="add" data-act="gnew" aria-label="Add task" style="margin-left:12px">+</button>') + filt + form + (true
     ? `<div class="gwrap"><div class="gnames"><div class="g-hd"></div>${names}<div class="g-n g-add" data-act="gnew">+ New task</div></div>
@@ -450,7 +455,7 @@ document.onclick = e => {
   else if (act === 'create') {
     const title = $('nt').value.trim(), type = $('ntype').value, start = $('ns').value;
     if (!title) return $('nt').focus();
-    items.push({ id: crypto.randomUUID().slice(0, 8), type, title, desc: '', epic: type === 'epic' ? null : $('nepic').value || null, status: 'todo', priority: 'med', log: [{ at: Date.now(), from: null, to: 'todo', note: '' }], start, due: $('nd').value < start ? start : $('nd').value });
+    items.push({ id: crypto.randomUUID().slice(0, 8), type, title, desc: '', epic: type === 'epic' ? null : $('nepic').value || null, ...(type === 'epic' ? {} : parentOf($('nparent').value)), status: 'todo', priority: 'med', log: [{ at: Date.now(), from: null, to: 'todo', note: '' }], start, due: $('nd').value < start ? start : $('nd').value });
     adding = false;
   }
   else if (act === 'open') { view = 'item'; cur = id; }
@@ -461,7 +466,7 @@ document.onclick = e => {
   else if (act === 'gcancel') gnew = null;
   else if (act === 'gcreate') {
     const title = $('gt').value.trim(); if (!title) return $('gt').focus();
-    items.push({ id: crypto.randomUUID().slice(0, 8), type: $('gtype').value, title, desc: '', epic: $('gepic').value || null, status: 'todo', priority: 'med', log: [{ at: Date.now(), from: null, to: 'todo', note: '' }], start: gnew.s, due: gnew.e });
+    items.push({ id: crypto.randomUUID().slice(0, 8), type: $('gtype').value, title, desc: '', epic: $('gepic').value || null, ...parentOf($('gparent').value), status: 'todo', priority: 'med', log: [{ at: Date.now(), from: null, to: 'todo', note: '' }], start: gnew.s, due: gnew.e });
     gnew = null;
   }
   else if (act === 'addlink') {
@@ -506,7 +511,12 @@ document.onchange = e => {
   const f = e.target.dataset.f, v = e.target.value;
   if (e.target.id === 'file') return importFile(e.target.files[0]);
   if (e.target.id === 'gfilter') { gfilter = v; return render(); }
-  if (e.target.id === 'ntype') return void ($('nepic').hidden = v === 'epic');
+  if (e.target.id === 'ntype' || e.target.id === 'nparent') {
+    const epic = $('ntype').value === 'epic';
+    $('nparent').hidden = epic; $('nepic').hidden = epic || !!$('nparent').value;
+    return;
+  }
+  if (e.target.id === 'gparent') return void ($('gepic').hidden = !!v);
   if (e.target.dataset.log) return void (byId(cur).log[e.target.dataset.log].note = v.trim(), persist()); // no render: keep the keyboard
   if (!f) return;
   const it = byId(cur);
