@@ -21,7 +21,7 @@ Open http://localhost:8000. Add `?test` to the URL to run the built-in self-chec
 3. Open the Pages URL on your phone. iPhone: Safari, Share, Add to Home Screen. Android: Chrome, menu, Install app.
 
 ## Good to know
-- Data is stored in each device's browser (`localStorage`). There is no sync or backup, so phones don't share data.
+- Data is stored in each device's browser (`localStorage`). To sync or back up, use Time tab, Data: Export saves a `.json` file, Import replaces the device's data with one. Moving the file between phones is up to you.
 - Install it to the home screen so iOS doesn't clear the data after a week of non-use.
 - The timer can't ring while the phone is locked (no push notifications).
 - On the Gantt, swipe the background or date header to scroll sideways, since a bar captures touch to drag.

@@ -204,7 +204,30 @@ function statsHtml() {
   return tabs() + `<h2>Today: ${tot(td)}</h2>${barsHtml(td)}
     <h2>This week: ${tot(w)} · by epic</h2>${barsHtml(w)}
     <h2>This week · by type</h2>${barsHtml(sum(+wk, it => it.type))}
-    <h2>This week · top items</h2>${barsHtml(sum(+wk, it => it.title))}`;
+    <h2>This week · top items</h2>${barsHtml(sum(+wk, it => it.title))}
+    <h2>Data</h2>
+    <div class="row"><button data-act="export">Export</button><button data-act="import">Import</button></div>
+    <input type="file" id="file" accept="application/json,.json" hidden>
+    <div class="muted">Export saves a .json file. Import replaces this device's data with a file.</div>`;
+}
+
+function exportData() {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify({ items, sessions }, null, 2)], { type: 'application/json' }));
+  a.download = `tasks-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+async function importFile(f) {
+  if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!Array.isArray(d.items) || !Array.isArray(d.sessions)) throw 0;
+    if (!confirm(`Replace this device's data with ${d.items.length} items and ${d.sessions.length} sessions?`)) return render();
+    items = d.items; sessions = d.sessions;
+    if (st && !byId(st.item)) st = null;
+    persist();
+  } catch { alert('Not a valid export file'); }
+  render();
 }
 
 function render() {
@@ -220,6 +243,8 @@ document.onclick = e => {
   const b = e.target.closest('button[data-act], div[data-act]'); if (!b) return;
   const { act, id } = b.dataset, it = byId(cur);
   if (act === 'tab') { view = id; cur = null; }
+  else if (act === 'export') return exportData();
+  else if (act === 'import') return $('file').click(); // no render: it would drop the file input mid-dialog
   else if (act === 'filter') filter = id;
   else if (act === 'add') adding = !adding;
   else if (act === 'create') {
@@ -247,6 +272,7 @@ document.onclick = e => {
 };
 document.onchange = e => {
   const f = e.target.dataset.f, v = e.target.value;
+  if (e.target.id === 'file') return importFile(e.target.files[0]);
   if (e.target.id === 'ntype') return void ($('nepic').hidden = v === 'epic');
   if (!f) return;
   const it = byId(cur);
