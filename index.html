@@ -117,8 +117,10 @@
   .g-b .l { left:0; } .g-b .r { right:0; }
   .g-b.done { opacity:.35; }
   .g-t { position:absolute; top:76px; bottom:0; width:2px; background:var(--red); }
-  .tog { flex:none; width:18px; height:22px; padding:0; margin-right:-6px; background:none; color:var(--muted); font-size:12px; border-radius:6px; }
-  .g-n .tog { margin-right:-4px; width:16px; }
+  .tog { flex:none; display:flex; align-items:center; justify-content:center; width:44px; height:44px; padding:0; margin:-12px -10px -12px -14px; background:none; border-radius:12px; } /* 44px = iOS minimum tap target; negative margins keep rows compact */
+  .tog svg { width:20px; height:20px; fill:none; stroke:var(--accent); stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; transition:transform .15s; }
+  .tog.open svg { transform:rotate(90deg); }
+  .g-n .tog { width:34px; height:44px; margin:0 -8px 0 -12px; }
   @media (min-width:900px) {
     body { max-width:760px; padding:84px 24px 40px; }
     body.v-board, body.v-gantt { max-width:1100px; } body.v-item { max-width:640px; }
@@ -198,7 +200,7 @@ const epicProgress = e => { const k = items.filter(i => i.epic === e.id && !i.pa
 const RANK = { doing: 0, todo: 1, done: 2 }, PR = { high: 0, med: 1, low: 2 };
 const byRank = (a, b) => RANK[a.status] - RANK[b.status] || (a.due || '9').localeCompare(b.due || '9') || PR[a.priority || 'med'] - PR[b.priority || 'med'];
 const hasKids = it => items.some(i => i.parent === it.id || (it.type === 'epic' && i.epic === it.id));
-const togBtn = it => hasKids(it) ? `<button class="tog" data-act="tog" data-id="${it.id}" aria-label="${collapsed.has(it.id) ? 'Expand' : 'Collapse'}">${collapsed.has(it.id) ? '▸' : '▾'}</button>` : '<span class="tog"></span>';
+const togBtn = it => hasKids(it) ? `<button class="tog ${collapsed.has(it.id) ? '' : 'open'}" data-act="tog" data-id="${it.id}" aria-label="${collapsed.has(it.id) ? 'Expand' : 'Collapse'}"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>` : '<span class="tog"></span>';
 const subs = id => items.filter(i => i.parent === id);
 const progress = it => { const k = subs(it.id); return k.length ? [k.filter(x => x.status === 'done').length, k.length] : null; };
 const epicOf = it => it.type === 'epic' ? it.title : (epicItem(it.epic)?.title || 'No epic');
@@ -286,7 +288,7 @@ function listRows() {
 function listHtml() {
   const epics = items.filter(i => i.type === 'epic'), [late, due] = dueCounts();
   const groups = items.filter(hasKids), allShut = groups.length && groups.every(g => collapsed.has(g.id));
-  return header((groups.length ? `<button class="link" data-act="colall" style="margin-right:12px">${allShut ? 'Expand all' : 'Collapse all'}</button>` : '') + (adding ? '' : `<button class="add" data-act="add" aria-label="Add item">+</button>`)) +
+  return header((groups.length ? `<button class="link" data-act="colall" style="margin-right:8px;padding:10px 8px;font-size:15px">${allShut ? 'Expand all' : 'Collapse all'}</button>` : '') + (adding ? '' : `<button class="add" data-act="add" aria-label="Add item">+</button>`)) +
     (late || due ? `<button class="today ${filter === 'today' ? 'on' : ''}" data-act="filter" data-id="${filter === 'today' ? 'all' : 'today'}">${[late && late + ' overdue', due && due + ' due today'].filter(Boolean).join(' · ')}</button>` : '') +
     (adding
       ? `<div class="card" style="padding:12px"><input id="nt" placeholder="Title" aria-label="Title">
