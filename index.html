@@ -122,9 +122,9 @@
   .tog.open svg { transform:rotate(90deg); }
   .g-n .tog { width:34px; height:44px; margin:0 -8px 0 -12px; }
   @media (min-width:900px) {
-    body { max-width:760px; padding:84px 24px 40px; }
+    body { max-width:760px; padding:calc(84px + env(safe-area-inset-top)) 24px 40px; }
     body.v-board, body.v-gantt { max-width:1100px; } body.v-item { max-width:640px; }
-    .tabbar { top:0; bottom:auto; justify-content:center; gap:8px; padding:10px 0; border-top:0; border-bottom:.5px solid var(--sep); }
+    .tabbar { top:0; bottom:auto; z-index:5; justify-content:center; gap:8px; padding:calc(10px + env(safe-area-inset-top)) 0 10px; border-top:0; border-bottom:.5px solid var(--sep); background:var(--bg); backdrop-filter:none; -webkit-backdrop-filter:none; } /* solid: a blurred top bar looks smeared over the page title on iPad */
     .tabbar button { flex:none; flex-direction:row; gap:8px; padding:8px 18px; font-size:14px; border-radius:10px; }
     .tabbar button.on { background:var(--fill); }
     .foot { bottom:24px; }
@@ -161,6 +161,8 @@ let st = load('pomodoro-state', null); // running timer {work, item, start, end}
 let settings = { theme: 'system', work: 25, brk: 5, ...load('settings', {}) }; // minutes
 let collapsed = new Set(load('collapsed', [])); // epics / parents hidden in List and Gantt
 let q = ''; // list search text
+let imp = null; // file waiting for merge / replace choice
+let msg = ''; // result of the last import
 let ask = null; // pending status change {id, to}, waits for confirmation
 let gfilter = ''; // gantt: epic id, 'none', or '' for all
 let gnew = null; // gantt: dates picked for a new task
@@ -168,7 +170,14 @@ let view = 'list', cur = null, filter = 'all', adding = false, isWork = true;
 
 const byId = id => items.find(i => i.id === id);
 const epicItem = id => { const e = byId(id); return e?.type === 'epic' ? e : null; };
-const persist = () => { save('items', items); save('sessions', sessions); save('pomodoro-state', st); save('settings', settings); save('collapsed', [...collapsed]); };
+// every item carries `at`, the time it last changed; merge import uses it to pick the newer copy
+const sig = ({ at, ...rest }) => JSON.stringify(rest);
+let seen = new Map(items.map(i => [i.id, sig(i)])); // items as last saved, so only real edits bump `at`
+const markSeen = () => { seen = new Map(items.map(i => [i.id, sig(i)])); };
+const persist = () => {
+  for (const i of items) if (seen.get(i.id) !== sig(i)) { i.at = Date.now(); seen.set(i.id, sig(i)); }
+  save('items', items); save('sessions', sessions); save('pomodoro-state', st); save('settings', settings); save('collapsed', [...collapsed]);
+};
 const len = () => isWork ? settings.work : settings.brk;
 // status change with an audit entry; the note is added later from the item's Activity list
 function setStatus(it, to) {
@@ -184,6 +193,29 @@ const askSheet = () => {
     <input id="asknote" placeholder="Add a note (optional)" aria-label="Note">
     <div class="row"><button data-act="askno">Cancel</button><button class="primary" data-act="askok">Confirm</button></div></div></div>`;
 };
+// merge two datasets: new items are added; for an item in both, the newer edit wins and activity logs are combined; nothing is deleted
+function mergeData(mine, theirs) {
+  const all = new Map(mine.items.map(i => [i.id, i])), logKey = l => `${l.at}|${l.from}|${l.to}`;
+  let added = 0, updated = 0;
+  for (const t of theirs.items) {
+    const m = all.get(t.id);
+    if (!m) { all.set(t.id, t); added++; continue; }
+    const log = new Map();
+    for (const l of [...(m.log || []), ...(t.log || [])]) { const o = log.get(logKey(l)); if (!o || (!o.note && l.note)) log.set(logKey(l), l); }
+    const merged = { ...((t.at || 0) > (m.at || 0) ? t : m), ...(log.size ? { log: [...log.values()].sort((a, b) => a.at - b.at) } : {}) };
+    if (JSON.stringify(merged) !== JSON.stringify(m)) { all.set(t.id, merged); updated++; }
+  }
+  const key = s => `${s.start}|${s.item}`, have = new Set(mine.sessions.map(key));
+  const extra = theirs.sessions.filter(s => !have.has(key(s)));
+  return { items: [...all.values()], sessions: [...mine.sessions, ...extra], added, updated, sessionsAdded: extra.length };
+}
+const importSheet = () => `<div class="sheet"><button class="back" data-act="impno" aria-label="Cancel"></button><div class="panel"><h3>Import file</h3>
+  <div class="muted" style="margin:4px 0 14px">${imp.items.length} items, ${imp.sessions.length} focus sessions</div>
+  <button class="primary" data-act="impmerge" style="width:100%">Merge with this device</button>
+  <div class="muted" style="margin:6px 4px 14px">Adds new items. For items in both, the most recently edited copy wins and activity logs are combined. Nothing is deleted.</div>
+  <button data-act="imprep" style="width:100%;color:var(--red)">Replace this device's data</button>
+  <div class="muted" style="margin:6px 4px 14px">Overwrites everything here with the file.</div>
+  <button data-act="impno" style="width:100%">Cancel</button></div></div>`;
 function setField(it, f, v) {
   if (f === 'parent') { if (v) { it.parent = v; it.epic = byId(v).epic; } else delete it.parent; return; }
   it[f] = f === 'epic' ? v || null : v;
@@ -402,7 +434,8 @@ function statsHtml() {
     <h2>Data</h2>
     <div class="row"><button data-act="export" style="background:var(--card)">Export</button><button data-act="import" style="background:var(--card)">Import</button></div>
     <input type="file" id="file" accept="application/json,.json" hidden>
-    <div class="muted" style="padding:0 4px">Export saves a .json file. Import replaces this device's data with a file.<br>Last backup: ${ago === null ? 'never' : ago === 0 ? 'today' : ago + ' days ago'}</div>`;
+    ${msg ? `<div class="card" style="padding:12px 16px;color:var(--accent)">${esc(msg)}</div>` : ''}
+    <div class="muted" style="padding:0 4px">Export saves a .json file. Import can merge a file into this device or replace everything.<br>Last backup: ${ago === null ? 'never' : ago === 0 ? 'today' : ago + ' days ago'}</div>`;
 }
 
 function exportData() {
@@ -418,11 +451,7 @@ async function importFile(f) {
   try {
     const d = JSON.parse(await f.text());
     if (!Array.isArray(d.items) || !Array.isArray(d.sessions)) throw 0;
-    if (!confirm(`Replace this device's data with ${d.items.length} items and ${d.sessions.length} sessions?`)) return render();
-    items = d.items; sessions = d.sessions;
-    if (d.settings) settings = { ...settings, ...d.settings };
-    if (st && !byId(st.item)) st = null;
-    persist();
+    imp = d;
   } catch { alert('Not a valid export file'); }
   render();
 }
@@ -434,7 +463,7 @@ function render() {
     ? `<div class="foot" data-act="open" data-id="${st.item}">▶ ${esc(byId(st.item)?.title ?? '')} · <span class="ft"></span></div>` : '';
   document.body.className = 'v-' + view; // prefixed: .board, .gantt and .item are component classes
   const kept = $('gantt')?.scrollLeft; // a redraw after a drag must not jump the chart
-  $('app').innerHTML = ({ list: listHtml, board: boardHtml, gantt: ganttHtml, stats: statsHtml, item: itemHtml })[view]() + foot + (view === 'item' ? '' : tabbar()) + (ask ? askSheet() : '');
+  $('app').innerHTML = ({ list: listHtml, board: boardHtml, gantt: ganttHtml, stats: statsHtml, item: itemHtml })[view]() + foot + (view === 'item' ? '' : tabbar()) + (ask ? askSheet() : '') + (imp ? importSheet() : '');
   const g = $('gantt'); if (g) g.scrollLeft = kept ?? g.dataset.x - 60; // else start near today
   tick();
   if (gnew && $('gt') && !$('gt').dataset.seen) { $('gt').dataset.seen = 1; window.scrollTo(0, 0); $('gt').focus(); }
@@ -443,7 +472,17 @@ function render() {
 document.onclick = e => {
   const b = e.target.closest('button[data-act], div[data-act]'); if (!b) return;
   const { act, id } = b.dataset, it = byId(cur);
-  if (act === 'tab') { view = id; cur = null; gnew = null; ask = null; }
+  if (act === 'tab') { view = id; cur = null; gnew = null; ask = null; msg = ''; }
+  else if (act === 'impno') imp = null;
+  else if (act === 'impmerge') {
+    const r = mergeData({ items, sessions }, imp); items = r.items; sessions = r.sessions; imp = null; markSeen();
+    msg = `Merged: ${r.added} new, ${r.updated} updated, ${r.sessionsAdded} focus sessions added.`;
+  }
+  else if (act === 'imprep') {
+    items = imp.items; sessions = imp.sessions; if (imp.settings) settings = { ...settings, ...imp.settings };
+    if (st && !byId(st.item)) st = null;
+    imp = null; markSeen(); msg = "Replaced this device's data.";
+  }
   else if (act === 'export') return exportData();
   else if (act === 'import') return $('file').click(); // no render: it would drop the file input mid-dialog
   else if (act === 'today') return void ($('gantt').scrollLeft = $('gantt').dataset.x - 60);
@@ -596,6 +635,14 @@ if (location.search === '?test') {
   console.assert(ord.map(o => o.status[0] + (o.due || '').slice(5, 7)).join() === 'd,t02,t03,t03,d01' && ord[2].priority === 'high', 'sort: doing, due, priority, done last');
   items.find(i => i.id === 'q').parent = 'p'; items.find(i => i.id === 't').status = 'done'; // q was unparented above
   console.assert(epicProgress(items[0]).join() === '1,3', 'epic progress counts top-level children only');
+  const A = { items: [{ id: 'x', title: 'old', at: 1, log: [{ at: 1, from: null, to: 'todo', note: '' }] }, { id: 'only-a', title: 'A', at: 5 }], sessions: [{ start: 1, item: 'x', min: 25 }] };
+  const B = { items: [{ id: 'x', title: 'new', at: 9, log: [{ at: 1, from: null, to: 'todo', note: 'first' }, { at: 4, from: 'todo', to: 'done', note: '' }] }, { id: 'only-b', title: 'B', at: 2 }], sessions: [{ start: 1, item: 'x', min: 25 }, { start: 2, item: 'x', min: 25 }] };
+  const M = mergeData(A, B), mx = M.items.find(i => i.id === 'x');
+  console.assert(M.items.length === 3 && M.added === 1 && M.updated === 1 && mx.title === 'new' && mx.at === 9, 'merge: newer copy wins, new items added');
+  console.assert(mx.log.length === 2 && mx.log[0].note === 'first', 'merge: logs combined, notes kept');
+  console.assert(M.sessions.length === 2 && M.sessionsAdded === 1, 'merge: sessions deduped');
+  console.assert(mergeData(B, A).items.find(i => i.id === 'x').title === 'new', 'merge: same winner either direction');
+  console.assert(mergeData(A, A).updated === 0 && mergeData(A, A).added === 0, 'merge: same data is a no-op');
   [items, sessions] = keep; console.log('ok');
 }
 </script>

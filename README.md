@@ -31,8 +31,9 @@ Open http://localhost:8000. Add `?test` to the URL to run the built-in self-chec
 - `manifest.webmanifest`, `icon.png`, `icon-512.png`: make it installable.
 
 ## Good to know
-- Data is stored in each device's browser (`localStorage`). To back up or sync, use Time tab, Data: Export saves a `.json` file and Import replaces the device's data with one. Moving the file between devices is up to you. The Time tab warns when your last backup is a week old.
-- Import replaces everything, so export from the device you edited last. Editing on two devices and importing one overwrites the other's changes.
+- Data is stored in each device's browser (`localStorage`). To back up or sync, use Time tab, Data: Export saves a `.json` file. Moving the file between devices is up to you. The Time tab warns when your last backup is a week old.
+- Import asks **Merge** or **Replace**. Merge adds new items; for an item on both devices the most recently edited copy wins, activity logs are combined and focus sessions are deduplicated. Replace overwrites the device with the file.
+- Merge never deletes: an item you deleted on one device comes back if the other device still has it. Settings are not merged. Items edited before merge support existed have no timestamp, so on those the device you import into wins.
 - Install it to the home screen so iOS doesn't clear the data after a week of non-use.
 - The timer can't ring while the phone is locked (no push notifications).
 - After an update, the offline cache may show the old version once; reopen the app or clear site data.
