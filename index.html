@@ -3,56 +3,123 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#1f2937">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Tasks">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon.png">
 <title>Tasks</title>
 <style>
-  :root { --bg:#fff; --fg:#111827; --muted:#6b7280; --card:#f3f4f6; --accent:#dc2626; --epic:#7c3aed; --task:#059669; --bug:#dc2626; --improvement:#2563eb; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#111827; --fg:#f9fafb; --muted:#9ca3af; --card:#1f2937; } }
-  body { margin:0; padding:16px 16px 80px; padding-top:max(16px,env(safe-area-inset-top)); background:var(--bg); color:var(--fg); font:16px system-ui,sans-serif; max-width:640px; margin-inline:auto; }
-  input, select, textarea, button { font:inherit; padding:10px 12px; border-radius:10px; border:1px solid var(--muted); background:var(--card); color:var(--fg); box-sizing:border-box; }
-  input, select, textarea { width:100%; margin-bottom:8px; }
-  button { cursor:pointer; }
-  button.on, button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
-  button:disabled { opacity:.5; }
-  label { display:block; flex:1; color:var(--muted); font-size:13px; }
+  :root { --bg:#f2f2f7; --fg:#000; --muted:#8e8e93; --card:#fff; --fill:rgba(118,118,128,.12); --sep:rgba(60,60,67,.18); --bar:rgba(249,249,249,.85);
+    --accent:#007aff; --red:#ff3b30; --epic:#5856d6; --task:#007aff; --bug:#ff3b30; --improvement:#30b0c7; color-scheme:light dark; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) { --bg:#000; --fg:#fff; --muted:#8e8e93; --card:#1c1c1e; --fill:rgba(118,118,128,.24); --sep:rgba(84,84,88,.6); --bar:rgba(22,22,24,.85);
+    --accent:#0a84ff; --red:#ff453a; --task:#0a84ff; --bug:#ff453a; --epic:#5e5ce6; --improvement:#40c8e0; } }
+  :root[data-theme=dark] { color-scheme:dark; --bg:#000; --fg:#fff; --muted:#8e8e93; --card:#1c1c1e; --fill:rgba(118,118,128,.24); --sep:rgba(84,84,88,.6); --bar:rgba(22,22,24,.85);
+    --accent:#0a84ff; --red:#ff453a; --task:#0a84ff; --bug:#ff453a; --epic:#5e5ce6; --improvement:#40c8e0; }
+  :root[data-theme=light] { color-scheme:light; }
+  * { -webkit-tap-highlight-color:transparent; }
+  body { margin:0 auto; padding:16px 16px calc(100px + env(safe-area-inset-bottom)); padding-top:max(16px,env(safe-area-inset-top)); background:var(--bg); color:var(--fg); font:17px/1.35 -apple-system,BlinkMacSystemFont,system-ui,sans-serif; max-width:640px; -webkit-font-smoothing:antialiased; }
+  h1 { font-size:34px; font-weight:700; letter-spacing:.01em; margin:8px 0 12px; flex:1; }
+  h2 { font-size:13px; font-weight:400; text-transform:uppercase; color:var(--muted); margin:24px 16px 6px; }
+  .top { display:flex; align-items:center; }
+  input, select, textarea, button { font:inherit; color:var(--fg); }
+  input, select, textarea { width:100%; box-sizing:border-box; padding:11px 12px; margin:4px 0 10px; border:0; border-radius:10px; background:var(--card); }
+  select, input[type=date] { min-height:48px; -webkit-appearance:none; appearance:none; }
+  select { padding-right:36px; background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center / 16px; }
+  input:focus, select:focus, textarea:focus { outline:2px solid var(--accent); }
+  button { cursor:pointer; padding:10px 14px; border:0; border-radius:12px; background:var(--fill); color:var(--accent); font-weight:500; transition:transform .1s, opacity .1s; }
+  button:active { transform:scale(.97); opacity:.7; }
+  button.primary { background:var(--accent); color:#fff; font-weight:600; padding:14px; }
+  button:disabled { opacity:.4; transform:none; }
+  label, .lbl { display:block; flex:1; color:var(--muted); font-size:13px; padding-left:4px; }
+  .lbl { text-transform:capitalize; } .lbl .seg { margin-left:-4px; }
   .row { display:flex; gap:8px; margin-bottom:8px; }
-  .row > button { flex:1; padding:8px 4px; }
-  .item { background:var(--card); border-radius:10px; padding:10px 12px; margin:6px 0; cursor:pointer; }
-  .item small, .muted { color:var(--muted); font-size:14px; }
-  .late { color:var(--accent) !important; }
-  .badge { font-size:11px; text-transform:uppercase; padding:2px 6px; border-radius:6px; color:#fff; margin-right:6px; }
+  .row > button { flex:1; }
+  .seg { display:flex; padding:2px; margin:4px 0 12px; border-radius:9px; background:var(--fill); }
+  .seg button { flex:1; padding:6px 4px; border-radius:7px; background:none; color:var(--fg); font-size:13px; font-weight:500; text-transform:capitalize; }
+  .seg button.on { background:var(--card); font-weight:600; box-shadow:0 1px 4px rgba(0,0,0,.12); }
+  .group { background:var(--card); border-radius:12px; overflow:hidden; margin:8px 0; }
+  .item { display:flex; align-items:center; gap:12px; padding:11px 16px; cursor:pointer; position:relative; }
+  .item:active { background:var(--fill); }
+  .group .item + .item::before { content:''; position:absolute; top:0; right:0; left:36px; border-top:.5px solid var(--sep); }
+  .item .txt { flex:1; min-width:0; overflow-wrap:anywhere; }
+  .item.sub { padding-left:36px; } .group .item.sub + .item::before, .group .item + .item.sub::before { left:60px; }
+  .item.sub2 { padding-left:56px; } .group .item + .item.sub.sub2::before { left:80px; }
+  .item.epicrow, .g-n.epicrow { font-weight:600; }
+  .item.static { cursor:default; } .item.static:active { background:none; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:6px; background:var(--fill); font-size:13px; font-weight:600; text-transform:capitalize; }
+  .item .note { margin:6px 0 0; padding:8px 10px; background:var(--fill); font-size:15px; }
+  .group .item:has(.chk)::before { left:52px !important; }
+  .chk { flex:none; width:24px; height:24px; padding:0; border-radius:50%; border:2px solid var(--muted); background:none; color:#fff; font-size:14px; line-height:20px; }
+  .chk.on { background:var(--accent); border-color:var(--accent); }
+  .subadd { display:flex; gap:8px; padding:8px 12px; } .subadd input { margin:0; background:var(--fill); } .subadd button { flex:none; }
+  .prog { height:4px; border-radius:2px; background:var(--fill); margin:0 16px 8px; overflow:hidden; } .prog i { display:block; height:100%; background:var(--accent); }
+  .g-n.sub { padding-left:22px; }
+  .subadd select { margin:0; flex:1; min-width:0; background-color:var(--fill); min-height:44px; }
+  .g-r.gnew { touch-action:none; cursor:crosshair; } .g-r.gnew span { position:sticky; left:8px; display:inline-block; padding:12px 0 0 8px; font-size:12px; color:var(--muted); pointer-events:none; }
+  .g-b.ghost { background:var(--accent); opacity:.5; pointer-events:none; }
+  .g-n.g-add { color:var(--accent); font-weight:600; }
+  .xbtn { flex:none; width:28px; height:28px; padding:0; border-radius:50%; font-size:13px; color:var(--muted); }
+  .step { width:36px; height:32px; padding:0; font-size:20px; line-height:1; }
+  .num { min-width:64px; text-align:center; font-variant-numeric:tabular-nums; }
+  .item small, .muted { display:block; color:var(--muted); font-size:13px; }
+  .chev { color:var(--muted); opacity:.6; font-size:22px; line-height:1; }
+  .dot { flex:none; width:10px; height:10px; border-radius:50%; }
+  .late { color:var(--red) !important; }
   .epic { background:var(--epic); } .bug { background:var(--bug); } .improvement { background:var(--improvement); } .task { background:var(--task); }
-  h2 { font-size:16px; margin:20px 0 6px; }
-  .big { font-size:56px; text-align:center; font-variant-numeric:tabular-nums; margin:12px 0; }
-  .bar { background:var(--card); border-radius:6px; margin:6px 0; position:relative; padding:6px 8px; overflow:hidden; }
-  .bar i { position:absolute; inset:0 auto 0 0; background:var(--accent); opacity:.25; }
-  .bar span { position:relative; display:flex; justify-content:space-between; }
-  .foot { position:fixed; left:0; right:0; bottom:0; padding:14px 16px calc(14px + env(safe-area-inset-bottom)); background:var(--accent); color:#fff; text-align:center; cursor:pointer; }
-  .link { background:none; border:none; padding:0; color:var(--muted); }
-  .board { display:flex; gap:10px; overflow-x:auto; }
-  .col { flex:0 0 78%; }
-  .col .row { margin:6px 0 0; }
-  .gantt { overflow-x:auto; background:var(--card); border-radius:10px; }
-  .g-in { position:relative; background:repeating-linear-gradient(90deg, transparent 0 27px, rgba(128,128,128,.2) 27px 28px); }
-  .g-h { display:flex; } .g-h div { flex:none; width:28px; text-align:center; font-size:11px; color:var(--muted); white-space:nowrap; }
-  .g-r { position:relative; height:30px; }
-  .g-b { position:absolute; top:6px; height:18px; border-radius:5px; cursor:grab; touch-action:none; }
-  .g-b .h { position:absolute; top:0; bottom:0; width:10px; cursor:ew-resize; background:rgba(255,255,255,.35); }
-  .g-b .l { left:0; border-radius:5px 0 0 5px; } .g-b .r { right:0; border-radius:0 5px 5px 0; }
+  .add { width:36px; height:36px; padding:0; border-radius:50%; font-size:24px; line-height:36px; background:var(--accent); color:#fff; }
+  .today { display:block; width:100%; text-align:left; padding:12px 16px; margin-bottom:12px; background:var(--card); color:var(--red); }
+  .today.on { outline:2px solid var(--red); }
+  .card { background:var(--card); border-radius:12px; margin:8px 0; display:block; }
+  .card input, .card select { background-color:var(--fill); }
+  .card .row { margin:10px 0 0; } .card .row button { padding:6px; }
+  .big { font-size:64px; font-weight:200; text-align:center; font-variant-numeric:tabular-nums; margin:20px 0 4px; }
+  .bar { background:var(--card); border-radius:10px; margin:6px 0; position:relative; padding:10px 14px; overflow:hidden; font-size:15px; }
+  .bar i { position:absolute; inset:0 auto 0 0; background:var(--accent); opacity:.18; }
+  .bar span { position:relative; display:flex; justify-content:space-between; gap:8px; }
+  .bar b { font-weight:500; }
+  .foot { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(66px + env(safe-area-inset-bottom)); padding:10px 18px; border-radius:22px; background:var(--accent); color:#fff; font-weight:600; font-size:15px; white-space:nowrap; max-width:80vw; overflow:hidden; text-overflow:ellipsis; cursor:pointer; box-shadow:0 4px 16px rgba(0,122,255,.35); }
+  .link { background:none; padding:6px 0; }
+  .danger { color:var(--red); width:100%; background:var(--card); margin-top:24px; }
+  .tabbar { position:fixed; left:0; right:0; bottom:0; display:flex; padding:6px 0 calc(6px + env(safe-area-inset-bottom)); background:var(--bar); backdrop-filter:saturate(180%) blur(20px); -webkit-backdrop-filter:saturate(180%) blur(20px); border-top:.5px solid var(--sep); }
+  .tabbar button { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; padding:4px 0; background:none; color:var(--muted); font-size:10px; font-weight:500; border-radius:0; }
+  .tabbar button.on { color:var(--accent); }
+  .tabbar svg { width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .board { display:flex; gap:12px; overflow-x:auto; scroll-snap-type:x mandatory; margin:0 -16px; padding:0 16px; scrollbar-width:none; }
+  .board::-webkit-scrollbar { display:none; }
+  h2 + .muted { padding:0 16px; }
+  .col { flex:0 0 80%; scroll-snap-align:start; scroll-margin-left:16px; }
+  .col h2 { margin-left:4px; }
+  .gwrap { display:flex; background:var(--card); border-radius:12px; overflow:hidden; }
+  .gnames { flex:0 0 136px; min-width:0; border-right:.5px solid var(--sep); }
+  .gantt { flex:1; min-width:0; overflow-x:auto; scrollbar-width:none; } .gantt::-webkit-scrollbar { display:none; }
+  .g-in { position:relative; background:repeating-linear-gradient(90deg, transparent 0 39px, var(--sep) 39px 40px); }
+  .g-hd { height:76px; border-bottom:.5px solid var(--sep); }
+  .g-h { display:flex; height:20px; } .g-h div { flex:none; width:40px; padding:3px 0 0 5px; box-sizing:border-box; font-size:11px; color:var(--muted); white-space:nowrap; }
+  .g-h.m div { font-weight:600; color:var(--fg); }
+  .g-h.d { height:36px; } .g-h.d div { padding:0; text-align:center; line-height:1.15; }
+  .g-h.d b { display:inline-block; width:22px; height:22px; line-height:22px; border-radius:50%; font-size:13px; font-weight:500; color:var(--fg); }
+  .g-h.d .on b { background:var(--red); color:#fff; }
+  .g-we { position:absolute; top:0; bottom:0; width:40px; background:var(--fill); opacity:.6; }
+  .g-r, .g-n { height:44px; box-sizing:border-box; } .g-r + .g-r, .g-n + .g-n { border-top:.5px solid var(--sep); }
+  .g-r { position:relative; }
+  .g-n { display:flex; align-items:center; gap:8px; padding:0 10px; cursor:pointer; font-size:13px; }
+  .g-n .txt { min-width:0; } .g-n .txt div { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .g-n small { display:block; font-size:11px; font-weight:400; color:var(--muted); white-space:nowrap; }
+  .g-b { position:absolute; top:8px; height:28px; border-radius:8px; cursor:grab; touch-action:none; overflow:hidden; white-space:nowrap; color:#fff; font-size:12px; font-weight:600; line-height:28px; }
+  .g-b span { padding:0 14px; pointer-events:none; }
+  .g-b .h { position:absolute; top:0; bottom:0; width:12px; cursor:ew-resize; background:rgba(255,255,255,.25); }
+  .g-b .l { left:0; } .g-b .r { right:0; }
   .g-b.done { opacity:.35; }
-  .g-l { position:absolute; top:6px; line-height:18px; font-size:12px; white-space:nowrap; cursor:pointer; }
-  .g-t { position:absolute; top:0; bottom:0; width:2px; background:var(--accent); }
+  .g-t { position:absolute; top:76px; bottom:0; width:2px; background:var(--red); }
 </style>
 </head>
 <body>
 <div id="app"></div>
 
 <script>
-const WORK = 25, BREAK = 5, DAY = 28; // minutes; gantt day width in px
+const DAY = 40; // gantt day width in px
 const TYPES = ['epic', 'task', 'bug', 'improvement'], STATUS = ['todo', 'doing', 'done'], PRIO = ['low', 'med', 'high'];
 const $ = id => document.getElementById(id);
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
@@ -68,18 +135,41 @@ const short = s => new Date(s + 'T00:00').toLocaleDateString([], { month: 'short
 let items = load('items', []);       // {id, type, title, desc, epic, status, priority, start, due}
 let sessions = load('sessions', []); // {start, min, item} - epic/type are looked up via the item
 let st = load('pomodoro-state', null); // running timer {work, item, start, end}
+let settings = { theme: 'system', work: 25, brk: 5, ...load('settings', {}) }; // minutes
+let gfilter = ''; // gantt: epic id, 'none', or '' for all
+let gnew = null; // gantt: dates picked for a new task
 let view = 'list', cur = null, filter = 'all', adding = false, isWork = true;
 
 const byId = id => items.find(i => i.id === id);
 const epicItem = id => { const e = byId(id); return e?.type === 'epic' ? e : null; };
-const persist = () => { save('items', items); save('sessions', sessions); save('pomodoro-state', st); };
+const persist = () => { save('items', items); save('sessions', sessions); save('pomodoro-state', st); save('settings', settings); };
+const len = () => isWork ? settings.work : settings.brk;
+// status change with an audit entry; the note is added later from the item's Activity list
+function setStatus(it, to) {
+  if (it.status === to) return;
+  (it.log ??= []).push({ at: Date.now(), from: it.status, to, note: '' });
+  it.status = to;
+}
+function setField(it, f, v) {
+  if (f === 'parent') { if (v) { it.parent = v; it.epic = byId(v).epic; } else delete it.parent; return; }
+  it[f] = f === 'epic' ? v || null : v;
+  if (f === 'type' && v === 'epic') it.epic = null;
+  if (f === 'epic') subs(it.id).forEach(k => k.epic = it.epic);
+  if (it.start && it.due && it.due < it.start) it[f === 'start' ? 'due' : 'start'] = v; // keep start <= due
+}
+const isoWeek = s => { const d = new Date(s + 'T00:00'); d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7); const y = new Date(d.getFullYear(), 0, 4); return 1 + Math.round(((d - y) / 864e5 - 3 + (y.getDay() + 6) % 7) / 7); };
+const range = (a, b) => a === b ? short(a) : `${short(a)} – ${short(b)}`;
+const when = t => { const d = new Date(t); return (d.toDateString() === new Date().toDateString() ? 'Today' : d.toLocaleDateString([], { month: 'short', day: 'numeric' })) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); };
+const blockedBy = it => items.filter(o => o.status !== 'done' && o.links?.some(l => l.t === 'blocks' && l.id === it.id));
+const subs = id => items.filter(i => i.parent === id);
+const progress = it => { const k = subs(it.id); return k.length ? [k.filter(x => x.status === 'done').length, k.length] : null; };
 const epicOf = it => it.type === 'epic' ? it.title : (epicItem(it.epic)?.title || 'No epic');
 
 // [start, end] of an item; an epic without its own dates spans its children
 function span(it) {
   let s = it.start || it.due, e = it.due || it.start;
-  if (!s && it.type === 'epic') {
-    const k = items.filter(i => i.epic === it.id).map(span).filter(Boolean);
+  if (!s) {
+    const k = items.filter(i => i.epic === it.id || i.parent === it.id).map(span).filter(Boolean);
     if (k.length) { s = k.map(x => x[0]).sort()[0]; e = k.map(x => x[1]).sort().pop(); }
   }
   return s ? [s, e] : null;
@@ -94,7 +184,7 @@ function sum(since, key) {
   }
   return o;
 }
-const minutesFor = it => sessions.filter(s => s.item === it.id || (it.type === 'epic' && byId(s.item)?.epic === it.id)).reduce((a, s) => a + s.min, 0);
+const minutesFor = it => sessions.filter(s => s.item === it.id || byId(s.item)?.parent === it.id || (it.type === 'epic' && byId(s.item)?.epic === it.id)).reduce((a, s) => a + s.min, 0);
 
 function beep() {
   navigator.vibrate?.([300, 100, 300]);
@@ -102,13 +192,13 @@ function beep() {
 }
 
 function finish() {
-  if (st.work) sessions.push({ start: st.start, min: WORK, item: st.item });
+  if (st.work) sessions.push({ start: st.start, min: st.min ?? settings.work, item: st.item });
   isWork = !st.work; st = null; persist(); beep(); render();
 }
 
 function tick() {
   if (st && Date.now() >= st.end) return finish();
-  const t = mmss(st ? Math.max(0, Math.ceil((st.end - Date.now()) / 1000)) : (isWork ? WORK : BREAK) * 60);
+  const t = mmss(st ? Math.max(0, Math.ceil((st.end - Date.now()) / 1000)) : len() * 60);
   document.querySelectorAll('.ft').forEach(e => e.textContent = t);
   document.title = st ? t : 'Tasks';
 }
@@ -118,82 +208,127 @@ const barsHtml = o => {
   return Object.entries(o).sort((a, b) => b[1] - a[1]).map(([k, v]) =>
     `<div class="bar"><i style="width:${v / max * 100}%"></i><span><b>${esc(k)}</b><b>${fmt(v)}</b></span></div>`).join('') || '<div class="muted">Nothing yet</div>';
 };
-const VIEWS = { list: 'List', board: 'Board', gantt: 'Gantt', stats: 'Time' };
-const tabs = () => `<div class="row">${Object.entries(VIEWS).map(([v, l]) => `<button data-act="tab" data-id="${v}" class="${view === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-const rowHtml = it => {
-  const late = it.due && it.status !== 'done' && it.due < today();
-  const meta = [it.status, it.priority && it.priority !== 'med' ? it.priority : '', it.due ? 'due ' + short(it.due) : '', minutesFor(it) ? fmt(minutesFor(it)) : ''].filter(Boolean).join(' · ');
-  return `<div class="item" data-act="open" data-id="${it.id}"><span class="badge ${it.type}">${it.type}</span>${esc(it.title)}<br><small class="${late ? 'late' : ''}">${meta}</small></div>`;
+// view: [tab label, page title, icon path]
+const VIEWS = {
+  list: ['List', 'Tasks', '<path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01"/>'],
+  board: ['Board', 'Board', '<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="10" rx="1.5"/><rect x="17" y="4" width="4" height="13" rx="1.5"/>'],
+  gantt: ['Gantt', 'Timeline', '<path d="M3 6h10M7 12h13M5 18h8"/>'],
+  stats: ['Time', 'Time', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
 };
+const header = (extra = '') => `<div class="top"><h1>${VIEWS[view][1]}</h1>${extra}</div>`;
+const tabbar = () => `<nav class="tabbar">${Object.entries(VIEWS).map(([v, [l, , icon]]) =>
+  `<button data-act="tab" data-id="${v}" class="${view === v ? 'on' : ''}" aria-label="${l}"><svg viewBox="0 0 24 24">${icon}</svg>${l}</button>`).join('')}</nav>`;
+const rowHtml = (it, sub) => {
+  const late = it.due && it.status !== 'done' && it.due < today();
+  const pr = progress(it);
+  const meta = [it.type, it.status, pr ? `${pr[0]}/${pr[1]} subtasks` : '', it.status !== 'done' && blockedBy(it).length ? 'blocked' : '', it.priority && it.priority !== 'med' ? it.priority : '', it.due ? 'due ' + short(it.due) : '', minutesFor(it) ? fmt(minutesFor(it)) : ''].filter(Boolean).join(' · ');
+  return `<div class="item ${sub === 1 ? 'sub' : sub === 2 ? 'sub sub2' : ''} ${it.type === 'epic' ? 'epicrow' : ''}" data-act="open" data-id="${it.id}"><span class="dot ${it.type}"></span><div class="txt">${esc(it.title)}<small class="${late ? 'late' : ''}">${meta}</small></div><span class="chev">›</span></div>`;
+};
+const group = rows => rows ? `<div class="group">${rows}</div>` : '';
+// [overdue, due today] among items not done
+const dueCounts = () => { const t = today(), o = items.filter(i => i.due && i.status !== 'done'); return [o.filter(i => i.due < t).length, o.filter(i => i.due === t).length]; };
 
 function listHtml() {
   const epics = items.filter(i => i.type === 'epic');
-  const shown = it => filter === 'all' || it.status === filter;
-  const kids = e => items.filter(i => i.type !== 'epic' && i.epic === e.id && shown(i));
-  const orphans = items.filter(i => i.type !== 'epic' && !epicItem(i.epic) && shown(i));
-  return tabs() +
-    `<div class="row">${['all', ...STATUS].map(f => `<button data-act="filter" data-id="${f}" class="${filter === f ? 'on' : ''}">${f}</button>`).join('')}</div>` +
+  const t = today(), [late, due] = dueCounts();
+  const shown = it => filter === 'today' ? it.due && it.due <= t && it.status !== 'done' : filter === 'all' || it.status === filter;
+  const shownSubs = p => subs(p.id).filter(shown);
+  const top = i => i.type !== 'epic' && !i.parent && (shown(i) || shownSubs(i).length);
+  const withSubs = i => rowHtml(i, 1) + shownSubs(i).map(k => rowHtml(k, 2)).join('');
+  const kids = e => items.filter(i => top(i) && i.epic === e.id);
+  const orphans = items.filter(i => top(i) && !epicItem(i.epic));
+  return header(adding ? '' : `<button class="add" data-act="add" aria-label="Add item">+</button>`) +
+    (late || due ? `<button class="today ${filter === 'today' ? 'on' : ''}" data-act="filter" data-id="${filter === 'today' ? 'all' : 'today'}">${[late && late + ' overdue', due && due + ' due today'].filter(Boolean).join(' · ')}</button>` : '') +
     (adding
-      ? `<input id="nt" placeholder="Title" aria-label="Title">
+      ? `<div class="card" style="padding:12px"><input id="nt" placeholder="Title" aria-label="Title">
          <div class="row"><select id="ntype" aria-label="Type">${TYPES.map(t => `<option value="${t}" ${t === 'task' ? 'selected' : ''}>${t}</option>`).join('')}</select>
          <select id="nepic" aria-label="Epic"><option value="">No epic</option>${epics.map(e => `<option value="${e.id}">${esc(e.title)}</option>`).join('')}</select></div>
          <div class="row"><label>Start<input id="ns" type="date"></label><label>Due<input id="nd" type="date"></label></div>
-         <div class="row"><button class="primary" data-act="create">Add</button><button data-act="add">Cancel</button></div>`
-      : `<button class="primary" data-act="add" style="width:100%">+ Add</button>`) +
-    epics.map(e => rowHtml(e) + kids(e).map(rowHtml).join('')).join('') +
-    (orphans.length ? `<h2>No epic</h2>${orphans.map(rowHtml).join('')}` : '') +
+         <div class="row"><button data-act="add">Cancel</button><button class="primary" data-act="create">Add</button></div></div>`
+      : '') +
+    `<div class="seg">${['all', ...STATUS].map(f => `<button data-act="filter" data-id="${f}" class="${filter === f ? 'on' : ''}">${f}</button>`).join('')}</div>` +
+    epics.map(e => group(rowHtml(e) + kids(e).map(withSubs).join(''))).join('') +
+    (orphans.length ? `<h2>No epic</h2>${group(orphans.map(i => rowHtml(i, 0) + shownSubs(i).map(k => rowHtml(k, 2)).join('')).join(''))}` : '') +
     (items.length ? '' : '<p class="muted">No items yet. Add an epic, then tasks, bugs and improvements under it.</p>');
 }
 
 function boardHtml() {
-  return tabs() + `<div class="board">${STATUS.map((s, i) => `<div class="col"><h2>${s}</h2>${items.filter(x => x.type !== 'epic' && x.status === s).map(x =>
-    `<div class="item" data-act="open" data-id="${x.id}"><span class="badge ${x.type}">${x.type}</span>${esc(x.title)}<br><small>${esc(epicOf(x))}${x.due ? ' · due ' + short(x.due) : ''}</small>
-     <div class="row">${i ? `<button data-act="move" data-id="${x.id}" data-to="${STATUS[i - 1]}">←</button>` : ''}${i < 2 ? `<button data-act="move" data-id="${x.id}" data-to="${STATUS[i + 1]}">→</button>` : ''}</div></div>`).join('')}</div>`).join('')}</div>`;
+  return header() + `<div class="board">${STATUS.map((s, i) => { const col = items.filter(x => x.type !== 'epic' && x.status === s); return `<div class="col"><h2>${s} · ${col.length}</h2>${col.map(x =>
+    `<div class="card item" data-act="open" data-id="${x.id}"><div class="txt"><div style="display:flex;align-items:center;gap:8px"><span class="dot ${x.type}"></span>${esc(x.title)}</div><small class="${x.due && x.due < today() && s !== 'done' ? 'late' : ''}">${x.parent ? '↳ ' + esc(byId(x.parent)?.title ?? '') : esc(epicOf(x))}${x.due ? ' · due ' + short(x.due) : ''}</small>
+     <div class="row">${i ? `<button data-act="move" data-id="${x.id}" data-to="${STATUS[i - 1]}" aria-label="Move to ${STATUS[i - 1]}">‹ ${STATUS[i - 1]}</button>` : ''}${i < 2 ? `<button data-act="move" data-id="${x.id}" data-to="${STATUS[i + 1]}" aria-label="Move to ${STATUS[i + 1]}">${STATUS[i + 1]} ›</button>` : ''}</div></div></div>`).join('') || '<div class="muted" style="padding:0 4px">Empty</div>'}</div>`; }).join('')}</div>`;
 }
 
 function ganttHtml() {
   const t = today(), epics = items.filter(i => i.type === 'epic');
-  const order = [...epics.flatMap(e => [e, ...items.filter(i => i.type !== 'epic' && i.epic === e.id)]), ...items.filter(i => i.type !== 'epic' && !epicItem(i.epic))];
+  const ws = i => [i, ...subs(i.id)], plain = i => i.type !== 'epic' && !i.parent;
+  const order = [...epics.filter(e => !gfilter || gfilter === e.id).flatMap(e => [e, ...items.filter(i => plain(i) && i.epic === e.id).flatMap(ws)]), ...(!gfilter || gfilter === 'none' ? items.filter(i => plain(i) && !epicItem(i.epic)).flatMap(ws) : [])];
   const rows = order.map(it => [it, span(it)]);
   const dated = rows.filter(r => r[1]);
   const lo = addDays([t, ...dated.map(r => r[1][0])].sort()[0], -1), hi = addDays([t, ...dated.map(r => r[1][1])].sort().pop(), 6);
-  const n = diff(lo, hi) + 1;
-  const head = Array.from({ length: n }, (_, i) => addDays(lo, i));
+  const n = diff(lo, hi) + 1, x = diff(lo, t) * DAY;
+  const head = Array.from({ length: n }, (_, i) => addDays(lo, i)), wd = d => new Date(d + 'T00:00').getDay();
+  const names = dated.map(([it, [s, e]]) => `<div class="g-n ${it.type === 'epic' ? 'epicrow' : it.parent ? 'sub' : ''}" data-act="open" data-id="${it.id}"><span class="dot ${it.type}"></span><div class="txt"><div>${esc(it.title)}</div><small data-lab="${it.id}">${range(s, e)}</small></div></div>`).join('');
   const bars = dated.map(([it, [s, e]]) => {
     const left = diff(lo, s) * DAY, w = (diff(s, e) + 1) * DAY;
-    return `<div class="g-r"><div class="g-b ${it.type} ${it.status === 'done' ? 'done' : ''}" style="left:${left}px;width:${w}px" data-bar="${it.id}"><i class="h l"></i><i class="h r"></i></div>
-      <div class="g-l" style="left:${left + w + 4}px" data-act="open" data-id="${it.id}" data-lab="${it.id}">${esc(it.title)}</div></div>`;
+    return `<div class="g-r"><div class="g-b ${it.type} ${it.status === 'done' ? 'done' : ''}" style="left:${left}px;width:${w}px" data-bar="${it.id}"><i class="h l"></i><i class="h r"></i>${w >= 3 * DAY ? `<span>${esc(it.title)}</span>` : ''}</div></div>`;
   }).join('');
   const none = rows.filter(r => !r[1]).map(r => rowHtml(r[0])).join('');
-  return tabs() + (dated.length
-    ? `<div class="gantt" id="gantt" data-x="${diff(lo, t) * DAY}" data-lo="${lo}"><div class="g-in" style="width:${n * DAY}px">
-        <div class="g-h">${head.map(d => `<div>${d.slice(8) === '01' || d === lo ? new Date(d + 'T00:00').toLocaleString([], { month: 'short' }) : ''}</div>`).join('')}</div>
-        <div class="g-h">${head.map(d => `<div>${+d.slice(8)}</div>`).join('')}</div>
-        ${bars}<div class="g-t" style="left:${diff(lo, t) * DAY + DAY / 2 - 1}px"></div></div></div>`
-    : '<p class="muted">Give items a start or due date and they show up here.</p>') +
-    (none ? `<h2>Unscheduled</h2>${none}` : '');
+  const opt = (v, l, on) => `<option value="${v}" ${on ? 'selected' : ''}>${l}</option>`;
+  const filt = epics.length ? `<select id="gfilter" aria-label="Filter by epic">${opt('', 'All epics', !gfilter)}${epics.map(e => opt(e.id, esc(e.title), gfilter === e.id)).join('')}${opt('none', 'No epic', gfilter === 'none')}</select>` : '';
+  const form = gnew ? `<div class="card" style="padding:12px"><div class="lbl">New · ${range(gnew.s, gnew.e)}</div><input id="gt" placeholder="Title" aria-label="Title">
+    <div class="row"><select id="gtype" aria-label="Type">${['task', 'bug', 'improvement'].map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select>
+    <select id="gepic" aria-label="Epic"><option value="">No epic</option>${epics.map(e => opt(e.id, esc(e.title), e.id === gfilter)).join('')}</select></div>
+    <div class="row"><button data-act="gcancel">Cancel</button><button class="primary" data-act="gcreate">Add</button></div></div>` : '';
+  return header('<button class="link" data-act="today">Today</button><button class="add" data-act="gnew" aria-label="Add task" style="margin-left:12px">+</button>') + filt + form + (true
+    ? `<div class="gwrap"><div class="gnames"><div class="g-hd"></div>${names}<div class="g-n g-add" data-act="gnew">+ New task</div></div>
+      <div class="gantt" id="gantt" data-x="${x}" data-lo="${lo}"><div class="g-in" style="width:${n * DAY}px">
+        ${head.map((d, i) => wd(d) % 6 ? '' : `<i class="g-we" style="left:${i * DAY}px"></i>`).join('')}
+        <div class="g-hd"><div class="g-h m">${head.map((d, i) => `<div>${d.slice(8) === '01' || !i || wd(d) === 1 ? new Date(d + 'T00:00').toLocaleString([], { month: 'short' }) : ''}</div>`).join('')}</div>
+        <div class="g-h">${head.map((d, i) => `<div>${wd(d) === 1 || !i ? 'W' + isoWeek(d) : ''}</div>`).join('')}</div>
+        <div class="g-h d">${head.map(d => `<div class="${d === t ? 'on' : ''}">${new Date(d + 'T00:00').toLocaleDateString([], { weekday: 'narrow' })}<br><b>${+d.slice(8)}</b></div>`).join('')}</div></div>
+        ${bars}<div class="g-r gnew" data-new="1"><span>Drag across days to add a task</span>${gnew ? `<div class="g-b ghost" style="left:${diff(lo, gnew.s) * DAY}px;width:${(diff(gnew.s, gnew.e) + 1) * DAY}px"></div>` : ''}</div><div class="g-t" style="left:${x + DAY / 2 - 1}px"></div></div></div></div>`
+    : '') +
+    (none ? `<h2>Unscheduled</h2>${group(none)}` : '');
 }
 
 function itemHtml() {
   const it = byId(cur);
   if (!it) { view = 'list'; return listHtml(); }
   const running = st && st.item === cur, busy = st && !running;
-  const sel = (f, opts, v) => `<select data-f="${f}" aria-label="${f}">${opts.map(o => `<option ${o === v ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
+  const seg = (f, opts, v) => `<div class="lbl">${f}<div class="seg">${opts.map(o => `<button data-act="set" data-f="${f}" data-id="${o}" class="${o === v ? 'on' : ''}">${o === 'improvement' ? 'improve' : o}</button>`).join('')}</div></div>`;
+  const log = (it.log || []).map((l, i) => [l, i]).reverse();
   const hist = sessions.filter(s => s.item === cur).slice(-10).reverse();
-  return `<button class="link" data-act="back">← Back</button>
-    <input data-f="title" value="${esc(it.title)}" aria-label="Title" style="font-size:20px;margin-top:12px">
-    <div class="row">${STATUS.map(s => `<button data-act="status" data-id="${s}" class="${it.status === s ? 'on' : ''}">${s}</button>`).join('')}</div>
-    <div class="row"><label>Type${sel('type', TYPES, it.type)}</label><label>Priority${sel('priority', PRIO, it.priority || 'med')}</label></div>
-    ${it.type === 'epic' ? '' : `<label>Epic<select data-f="epic"><option value="">No epic</option>${items.filter(i => i.type === 'epic').map(e => `<option value="${e.id}" ${e.id === it.epic ? 'selected' : ''}>${esc(e.title)}</option>`).join('')}</select></label>`}
+  const par = byId(it.parent), kids = subs(it.id), pr = progress(it);
+  const opt = (v, l, on) => `<option value="${v}" ${on ? 'selected' : ''}>${l}</option>`;
+  const REL = { blocks: ['Blocks', 'Blocked by'], relates: ['Relates to', 'Relates to'] };
+  const lk = [...(it.links || []).filter(l => byId(l.id)).map(l => ({ label: REL[l.t][0], o: byId(l.id), from: it.id, to: l.id, t: l.t })),
+    ...items.flatMap(o => (o.links || []).filter(l => l.id === it.id).map(l => ({ label: REL[l.t][1], o, from: o.id, to: it.id, t: l.t })))];
+  const free = items.filter(o => o.type !== 'epic' && o.id !== it.id && !lk.some(x => x.o.id === o.id));
+  const parents = items.filter(o => o.type !== 'epic' && !o.parent && o.id !== it.id);
+  const types = TYPES.filter(t => t !== 'epic' || !(it.parent || kids.length));
+  return `<button class="link" data-act="back">‹ ${par ? esc(par.title) : 'Tasks'}</button>
+    <input data-f="title" value="${esc(it.title)}" aria-label="Title" style="font-size:24px;font-weight:700;margin-top:8px">
+    <div class="lbl">Status<div class="seg">${STATUS.map(s => `<button data-act="status" data-id="${s}" class="${it.status === s ? 'on' : ''}">${s}</button>`).join('')}</div></div>
+    <label>Type<select data-f="type">${types.map(t => opt(t, t[0].toUpperCase() + t.slice(1), t === it.type)).join('')}</select></label>
+    ${it.type === 'epic' || kids.length ? '' : `<label>Parent task<select data-f="parent"><option value="">None</option>${parents.map(o => opt(o.id, esc(o.title), o.id === it.parent)).join('')}</select></label>`}
+    ${seg('priority', PRIO, it.priority || 'med')}
+    ${it.type === 'epic' || it.parent ? '' : `<label>Epic<select data-f="epic"><option value="">No epic</option>${items.filter(i => i.type === 'epic').map(e => `<option value="${e.id}" ${e.id === it.epic ? 'selected' : ''}>${esc(e.title)}</option>`).join('')}</select></label>`}
     <div class="row"><label>Start<input type="date" data-f="start" value="${it.start || ''}"></label><label>Due<input type="date" data-f="due" value="${it.due || ''}"></label></div>
     <label>Description<textarea data-f="desc" rows="3">${esc(it.desc || '')}</textarea></label>
-    ${it.type === 'epic' ? `<h2>Items</h2>${items.filter(i => i.epic === it.id).map(rowHtml).join('') || '<div class="muted">None yet</div>'}` : ''}
-    <h2>Pomodoro · total ${fmt(minutesFor(it))}</h2>
-    <div class="big ${running ? 'ft' : ''}">${running ? '' : mmss((isWork ? WORK : BREAK) * 60)}</div>
+    ${it.type === 'epic' ? `<h2>Items</h2>${group(items.filter(i => i.epic === it.id).map(i => rowHtml(i)).join('')) || '<div class="muted">None yet</div>'}` : ''}
+    ${it.type === 'epic' || it.parent ? '' : `<h2>Subtasks${pr ? ` · ${pr[0]}/${pr[1]}` : ''}</h2>${pr ? `<div class="prog"><i style="width:${pr[0] / pr[1] * 100}%"></i></div>` : ''}
+      <div class="group">${kids.map(k => `<div class="item"><button class="chk ${k.status === 'done' ? 'on' : ''}" data-act="toggle" data-id="${k.id}" aria-label="Toggle done">${k.status === 'done' ? '✓' : ''}</button><div class="txt" data-act="open" data-id="${k.id}" style="${k.status === 'done' ? 'opacity:.5;text-decoration:line-through' : ''}">${esc(k.title)}${k.due ? `<small class="${k.status !== 'done' && k.due < today() ? 'late' : ''}">due ${short(k.due)}</small>` : ''}</div><div class="chev" data-act="open" data-id="${k.id}">›</div></div>`).join('')}
+        <div class="subadd"><input id="nsub" placeholder="Add subtask…" aria-label="New subtask"><button class="primary" data-act="addsub" style="padding:10px 16px">Add</button></div></div>`}
+    ${it.type === 'epic' || !(lk.length || free.length) ? '' : `<h2>Links</h2><div class="group">${lk.map(x => `<div class="item"><span class="pill">${x.label}</span><div class="txt" data-act="open" data-id="${x.o.id}" style="${x.o.status === 'done' ? 'opacity:.5;text-decoration:line-through' : ''}">${esc(x.o.title)}</div><button class="xbtn" data-act="unlink" data-from="${x.from}" data-to="${x.to}" data-t="${x.t}" aria-label="Remove link">✕</button></div>`).join('')}
+      ${free.length ? `<div class="subadd"><select id="lt" aria-label="Relation"><option value="blocks">Blocks</option><option value="by">Blocked by</option><option value="relates">Relates to</option></select><select id="li" aria-label="Task">${free.map(o => opt(o.id, esc(o.title))).join('')}</select><button class="primary" data-act="addlink" style="padding:10px 16px">Add</button></div>` : ''}</div>`}
+    <h2>Focus · total ${fmt(minutesFor(it))}</h2>
+    <div class="card" style="padding:4px 16px 16px"><div class="big ${running ? 'ft' : ''}">${running ? '' : mmss(len() * 60)}</div>
     <div class="muted" style="text-align:center">${running ? (st.work ? 'Focus' : 'Break') : (isWork ? 'Focus' : 'Break')}</div>
-    <div class="row" style="margin-top:12px"><button class="primary" data-act="${running ? 'stop' : 'start'}" ${busy ? 'disabled' : ''}>${running ? 'Stop' : busy ? 'Timer running on another item' : 'Start'}</button></div>
-    <div class="muted">${hist.map(s => `<div>${new Date(s.start).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · ${s.min}m</div>`).join('')}</div>
-    <p><button class="link" data-act="del">Delete</button></p>`;
+    <div class="row" style="margin-top:12px"><button class="primary" data-act="${running ? 'stop' : 'start'}" ${busy ? 'disabled' : ''}>${running ? 'Stop' : busy ? 'Timer running on another item' : 'Start'}</button></div></div>
+    ${log.length ? `<h2>Activity</h2>${group(log.map(([l, i]) => `<div class="item static"><div class="txt"><span class="pill">${l.from ? `${l.from} → ${l.to}` : `created · ${l.to}`}</span> <span class="muted" style="display:inline">${when(l.at)}</span>
+      <input class="note" data-log="${i}" value="${esc(l.note || '')}" placeholder="Add note…" aria-label="Note"></div></div>`).join(''))}` : ''}
+    ${hist.length ? `<h2>Sessions</h2>${group(hist.map(s => `<div class="item static"><div class="txt">${new Date(s.start).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div><span class="muted">${s.min}m</span></div>`).join(''))}` : ''}
+    <button class="danger" data-act="del">Delete</button>`;
 }
 
 function statsHtml() {
@@ -201,19 +336,21 @@ function statsHtml() {
   const wk = new Date(day); wk.setDate(day.getDate() - ((day.getDay() + 6) % 7)); // Monday
   const tot = o => fmt(Object.values(o).reduce((a, b) => a + b, 0));
   const td = sum(+day, epicOf), w = sum(+wk, epicOf);
-  return tabs() + `<h2>Today: ${tot(td)}</h2>${barsHtml(td)}
+  return header() + `<h2>Today: ${tot(td)}</h2>${barsHtml(td)}
     <h2>This week: ${tot(w)} · by epic</h2>${barsHtml(w)}
     <h2>This week · by type</h2>${barsHtml(sum(+wk, it => it.type))}
     <h2>This week · top items</h2>${barsHtml(sum(+wk, it => it.title))}
+    <h2>Settings</h2>${group(`<div class="item static"><div class="txt">Appearance</div><div class="seg" style="margin:0;flex:0 0 190px">${['system', 'light', 'dark'].map(t => `<button data-act="theme" data-id="${t}" class="${settings.theme === t ? 'on' : ''}">${t}</button>`).join('')}</div></div>` +
+      [['work', 'Focus', 5], ['brk', 'Break', 1]].map(([k, l, d]) => `<div class="item static"><div class="txt">${l}</div><button class="step" data-act="step" data-f="${k}" data-id="${-d}" aria-label="Less ${l}">−</button><span class="num">${settings[k]} min</span><button class="step" data-act="step" data-f="${k}" data-id="${d}" aria-label="More ${l}">+</button></div>`).join(''))}
     <h2>Data</h2>
-    <div class="row"><button data-act="export">Export</button><button data-act="import">Import</button></div>
+    <div class="row"><button data-act="export" style="background:var(--card)">Export</button><button data-act="import" style="background:var(--card)">Import</button></div>
     <input type="file" id="file" accept="application/json,.json" hidden>
-    <div class="muted">Export saves a .json file. Import replaces this device's data with a file.</div>`;
+    <div class="muted" style="padding:0 4px">Export saves a .json file. Import replaces this device's data with a file.</div>`;
 }
 
 function exportData() {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([JSON.stringify({ items, sessions }, null, 2)], { type: 'application/json' }));
+  a.href = URL.createObjectURL(new Blob([JSON.stringify({ items, sessions, settings }, null, 2)], { type: 'application/json' }));
   a.download = `tasks-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
@@ -224,6 +361,7 @@ async function importFile(f) {
     if (!Array.isArray(d.items) || !Array.isArray(d.sessions)) throw 0;
     if (!confirm(`Replace this device's data with ${d.items.length} items and ${d.sessions.length} sessions?`)) return render();
     items = d.items; sessions = d.sessions;
+    if (d.settings) settings = { ...settings, ...d.settings };
     if (st && !byId(st.item)) st = null;
     persist();
   } catch { alert('Not a valid export file'); }
@@ -231,67 +369,107 @@ async function importFile(f) {
 }
 
 function render() {
+  document.documentElement.dataset.theme = settings.theme; // 'system' matches neither override, so the media query decides
+  document.querySelectorAll('meta[name=theme-color]').forEach(m => m.content = getComputedStyle(document.body).backgroundColor);
   const foot = st && !(view === 'item' && cur === st.item)
     ? `<div class="foot" data-act="open" data-id="${st.item}">▶ ${esc(byId(st.item)?.title ?? '')} · <span class="ft"></span></div>` : '';
   const kept = $('gantt')?.scrollLeft; // a redraw after a drag must not jump the chart
-  $('app').innerHTML = ({ list: listHtml, board: boardHtml, gantt: ganttHtml, stats: statsHtml, item: itemHtml })[view]() + foot;
+  $('app').innerHTML = ({ list: listHtml, board: boardHtml, gantt: ganttHtml, stats: statsHtml, item: itemHtml })[view]() + foot + (view === 'item' ? '' : tabbar());
   const g = $('gantt'); if (g) g.scrollLeft = kept ?? g.dataset.x - 60; // else start near today
   tick();
+  if (gnew && $('gt') && !$('gt').dataset.seen) { $('gt').dataset.seen = 1; window.scrollTo(0, 0); $('gt').focus(); }
 }
 
 document.onclick = e => {
   const b = e.target.closest('button[data-act], div[data-act]'); if (!b) return;
   const { act, id } = b.dataset, it = byId(cur);
-  if (act === 'tab') { view = id; cur = null; }
+  if (act === 'tab') { view = id; cur = null; gnew = null; }
   else if (act === 'export') return exportData();
   else if (act === 'import') return $('file').click(); // no render: it would drop the file input mid-dialog
+  else if (act === 'today') return void ($('gantt').scrollLeft = $('gantt').dataset.x - 60);
   else if (act === 'filter') filter = id;
+  else if (act === 'theme') settings.theme = id;
+  else if (act === 'step') { const f = b.dataset.f; settings[f] = Math.min(120, Math.max(1, settings[f] + +id)); }
+  else if (act === 'set') setField(it, b.dataset.f, id);
   else if (act === 'add') adding = !adding;
   else if (act === 'create') {
     const title = $('nt').value.trim(), type = $('ntype').value, start = $('ns').value;
     if (!title) return $('nt').focus();
-    items.push({ id: crypto.randomUUID().slice(0, 8), type, title, desc: '', epic: type === 'epic' ? null : $('nepic').value || null, status: 'todo', priority: 'med', start, due: $('nd').value < start ? start : $('nd').value });
+    items.push({ id: crypto.randomUUID().slice(0, 8), type, title, desc: '', epic: type === 'epic' ? null : $('nepic').value || null, status: 'todo', priority: 'med', log: [{ at: Date.now(), from: null, to: 'todo', note: '' }], start, due: $('nd').value < start ? start : $('nd').value });
     adding = false;
   }
   else if (act === 'open') { view = 'item'; cur = id; }
-  else if (act === 'back') { view = 'list'; cur = null; }
-  else if (act === 'status') it.status = id;
-  else if (act === 'move') byId(id).status = b.dataset.to;
+  else if (act === 'back') { if (it?.parent) cur = it.parent; else { view = 'list'; cur = null; } }
+  else if (act === 'gnew') gnew = { s: today(), e: today() };
+  else if (act === 'gcancel') gnew = null;
+  else if (act === 'gcreate') {
+    const title = $('gt').value.trim(); if (!title) return $('gt').focus();
+    items.push({ id: crypto.randomUUID().slice(0, 8), type: $('gtype').value, title, desc: '', epic: $('gepic').value || null, status: 'todo', priority: 'med', log: [{ at: Date.now(), from: null, to: 'todo', note: '' }], start: gnew.s, due: gnew.e });
+    gnew = null;
+  }
+  else if (act === 'addlink') {
+    const t = $('lt').value, o = $('li').value; if (!o) return;
+    const [a, l] = t === 'by' ? [byId(o), { t: 'blocks', id: it.id }] : [it, { t, id: o }];
+    (a.links ??= []).push(l);
+  }
+  else if (act === 'unlink') { const a = byId(b.dataset.from); a.links = a.links.filter(l => !(l.id === b.dataset.to && l.t === b.dataset.t)); }
+  else if (act === 'toggle') { const k = byId(id); setStatus(k, k.status === 'done' ? 'todo' : 'done'); }
+  else if (act === 'addsub') {
+    const title = $('nsub').value.trim(); if (!title) return $('nsub').focus();
+    items.push({ id: crypto.randomUUID().slice(0, 8), type: 'task', title, desc: '', epic: it.epic, parent: it.id, status: 'todo', priority: 'med', log: [{ at: Date.now(), from: null, to: 'todo', note: '' }], start: '', due: '' });
+    persist(); render(); return $('nsub').focus();
+  }
+  else if (act === 'status') setStatus(it, id);
+  else if (act === 'move') setStatus(byId(id), b.dataset.to);
   else if (act === 'start' && !st) {
-    st = { work: isWork, item: cur, start: Date.now(), end: Date.now() + (isWork ? WORK : BREAK) * 60000 };
-    if (isWork && it.status === 'todo') it.status = 'doing';
+    st = { work: isWork, item: cur, start: Date.now(), end: Date.now() + len() * 60000, min: len() };
+    if (isWork && it.status === 'todo') setStatus(it, 'doing');
   }
   else if (act === 'stop') st = null; // stopping early logs nothing
-  else if (act === 'del' && confirm(`Delete "${it.title}"?`)) {
-    items = items.filter(i => i.id !== cur);
-    items.forEach(i => { if (i.epic === cur) i.epic = null; });
-    if (st?.item === cur) st = null;
-    view = 'list'; cur = null;
+  else if (act === 'del' && confirm(`Delete "${it.title}"${subs(cur).length ? ` and its ${subs(cur).length} subtasks` : ''}?`)) {
+    const gone = new Set([cur, ...subs(cur).map(k => k.id)]), p = it.parent;
+    items = items.filter(i => !gone.has(i.id));
+    items.forEach(i => { if (i.epic === cur) i.epic = null; if (i.links) i.links = i.links.filter(l => !gone.has(l.id)); });
+    if (st && gone.has(st.item)) st = null;
+    if (p) cur = p; else { view = 'list'; cur = null; }
   }
   persist(); render();
 };
+document.onkeydown = e => { if (e.key === 'Enter' && e.target.id === 'nsub') document.querySelector('[data-act=addsub]').click(); };
 document.onchange = e => {
   const f = e.target.dataset.f, v = e.target.value;
   if (e.target.id === 'file') return importFile(e.target.files[0]);
+  if (e.target.id === 'gfilter') { gfilter = v; return render(); }
   if (e.target.id === 'ntype') return void ($('nepic').hidden = v === 'epic');
+  if (e.target.dataset.log) return void (byId(cur).log[e.target.dataset.log].note = v.trim(), persist()); // no render: keep the keyboard
   if (!f) return;
   const it = byId(cur);
   if (f === 'title' && !v.trim()) return render();
-  it[f] = f === 'epic' ? v || null : v;
-  if (f === 'type' && v === 'epic') it.epic = null;
-  if (it.start && it.due && it.due < it.start) it[f === 'start' ? 'due' : 'start'] = v; // keep start <= due
+  setField(it, f, v);
   persist(); render();
 };
 
 // gantt: drag a bar to move it, drag an edge to change start/due, tap to open; snaps to whole days
 let drag = null;
+let mk = null; // drag on the empty bottom row to pick dates for a new task
 document.onpointerdown = e => {
+  const nr = e.target.closest('[data-new]');
+  if (nr) {
+    const x0 = nr.getBoundingClientRect().left, d = Math.max(0, Math.floor((e.clientX - x0) / DAY));
+    mk = { nr, x0, lo: $('gantt').dataset.lo, a: d, b: d, ghost: Object.assign(document.createElement('div'), { className: 'g-b ghost' }) };
+    nr.append(mk.ghost); nr.setPointerCapture(e.pointerId); return document.onpointermove(e);
+  }
   const b = e.target.closest('[data-bar]'); if (!b) return;
   const it = byId(b.dataset.bar), [s, en] = span(it);
   drag = { it, b, x: e.clientX, s, e: en, mode: e.target.classList.contains('l') ? 'l' : e.target.classList.contains('r') ? 'r' : 'm', moved: 0 };
   b.setPointerCapture(e.pointerId);
 };
 document.onpointermove = e => {
+  if (mk) {
+    mk.b = Math.max(0, Math.floor((e.clientX - mk.x0) / DAY));
+    const l = Math.min(mk.a, mk.b), r = Math.max(mk.a, mk.b);
+    return void Object.assign(mk.ghost.style, { left: l * DAY + 'px', width: (r - l + 1) * DAY + 'px' });
+  }
   if (!drag) return;
   drag.moved = Math.max(drag.moved, Math.abs(e.clientX - drag.x));
   const d = Math.round((e.clientX - drag.x) / DAY);
@@ -300,9 +478,10 @@ document.onpointermove = e => {
   drag.ns = s; drag.ne = en;
   const lo = $('gantt').dataset.lo, left = diff(lo, s) * DAY, w = (diff(s, en) + 1) * DAY, lab = document.querySelector(`[data-lab="${drag.it.id}"]`);
   Object.assign(drag.b.style, { left: left + 'px', width: w + 'px' });
-  lab.style.left = left + w + 4 + 'px'; lab.textContent = `${drag.it.title} · ${short(s)} – ${short(en)}`;
+  lab.textContent = range(s, en);
 };
 document.onpointerup = () => {
+  if (mk) { const { lo, a, b } = mk; mk = null; gnew = { s: addDays(lo, Math.min(a, b)), e: addDays(lo, Math.max(a, b)) }; return render(); }
   if (!drag) return;
   const { it, ns, ne, moved } = drag; drag = null;
   if (moved < 5) { view = 'item'; cur = it.id; }
@@ -323,6 +502,19 @@ if (location.search === '?test') {
   console.assert(JSON.stringify(span(items[0])) === '["2026-01-02","2026-01-09"]', 'epic spans children');
   console.assert(diff('2026-01-30', '2026-02-02') === 3 && addDays('2026-01-31', 1) === '2026-02-01', 'dates');
   console.assert(minutesFor(items[0]) === 25 && fmt(65) === '1h 5m', 'epic total / fmt');
+  console.assert(dueCounts().join() === '2,0', 'overdue / due today');
+  items[1].status = 'done'; console.assert(dueCounts().join() === '1,0', 'done not overdue');
+  console.assert(isoWeek('2026-01-01') === 1 && isoWeek('2026-10-18') === 42 && isoWeek('2024-12-30') === 1 && isoWeek('2027-01-01') === 53, 'iso week');
+  setStatus(items[2], 'doing'); setStatus(items[2], 'doing');
+  console.assert(items[2].log.length === 1 && items[2].log[0].to === 'doing' && items[2].status === 'doing', 'status change logged once');
+  items.push({ id: 's', type: 'task', title: 'S', epic: 'e', parent: 'u', status: 'done', due: '2026-01-12' });
+  sessions.push({ start: 1, min: 10, item: 's' });
+  console.assert(progress(items[2]).join() === '1,1' && minutesFor(items[2]) === 10, 'subtask progress / minutes');
+  items.push({ id: 'p', type: 'task', title: 'P', epic: 'e' }, { id: 'q', type: 'task', title: 'Q', epic: 'e', parent: 'p', due: '2026-01-12' });
+  console.assert(span(items.at(-2)).join() === '2026-01-12,2026-01-12', 'undated parent spans its subtasks');
+  items.find(i => i.id === 'q').links = [{ t: 'blocks', id: 'u' }];
+  console.assert(blockedBy(items[2]).length === 1 && (items.find(i => i.id === 'q').status = 'done', blockedBy(items[2]).length === 0), 'blocked until the blocker is done');
+  const pq = items.find(i => i.id === 'q'); setField(pq, 'parent', ''); console.assert(!pq.parent, 'parent cleared');
   [items, sessions] = keep; console.log('ok');
 }
 </script>
