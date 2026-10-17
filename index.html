@@ -117,6 +117,23 @@
   .g-b .l { left:0; } .g-b .r { right:0; }
   .g-b.done { opacity:.35; }
   .g-t { position:absolute; top:76px; bottom:0; width:2px; background:var(--red); }
+  .tog { flex:none; width:18px; height:22px; padding:0; margin-right:-6px; background:none; color:var(--muted); font-size:12px; border-radius:6px; }
+  .g-n .tog { margin-right:-4px; width:16px; }
+  @media (min-width:900px) {
+    body { max-width:760px; padding:84px 24px 40px; }
+    body.v-board, body.v-gantt { max-width:1100px; } body.v-item { max-width:640px; }
+    .tabbar { top:0; bottom:auto; justify-content:center; gap:8px; padding:10px 0; border-top:0; border-bottom:.5px solid var(--sep); }
+    .tabbar button { flex:none; flex-direction:row; gap:8px; padding:8px 18px; font-size:14px; border-radius:10px; }
+    .tabbar button.on { background:var(--fill); }
+    .foot { bottom:24px; }
+    .board { margin:0; padding:0; overflow:visible; scroll-snap-type:none; } .col { flex:1; min-width:0; }
+    .sheet { align-items:center; } .sheet .panel { max-width:420px; border-radius:20px; }
+  }
+  @media (hover:hover) and (pointer:fine) {
+    button:hover { opacity:.85; } button:disabled:hover { opacity:.4; }
+    .item:not(.static):hover, .g-n:hover { background:var(--fill); }
+    .gantt { scrollbar-width:thin; } .gantt::-webkit-scrollbar { display:block; height:8px; }
+  }
 </style>
 </head>
 <body>
@@ -140,6 +157,8 @@ let items = load('items', []);       // {id, type, title, desc, epic, status, pr
 let sessions = load('sessions', []); // {start, min, item} - epic/type are looked up via the item
 let st = load('pomodoro-state', null); // running timer {work, item, start, end}
 let settings = { theme: 'system', work: 25, brk: 5, ...load('settings', {}) }; // minutes
+let collapsed = new Set(load('collapsed', [])); // epics / parents hidden in List and Gantt
+let q = ''; // list search text
 let ask = null; // pending status change {id, to}, waits for confirmation
 let gfilter = ''; // gantt: epic id, 'none', or '' for all
 let gnew = null; // gantt: dates picked for a new task
@@ -147,7 +166,7 @@ let view = 'list', cur = null, filter = 'all', adding = false, isWork = true;
 
 const byId = id => items.find(i => i.id === id);
 const epicItem = id => { const e = byId(id); return e?.type === 'epic' ? e : null; };
-const persist = () => { save('items', items); save('sessions', sessions); save('pomodoro-state', st); save('settings', settings); };
+const persist = () => { save('items', items); save('sessions', sessions); save('pomodoro-state', st); save('settings', settings); save('collapsed', [...collapsed]); };
 const len = () => isWork ? settings.work : settings.brk;
 // status change with an audit entry; the note is added later from the item's Activity list
 function setStatus(it, to) {
@@ -174,6 +193,12 @@ const isoWeek = s => { const d = new Date(s + 'T00:00'); d.setDate(d.getDate() +
 const range = (a, b) => a === b ? short(a) : `${short(a)} – ${short(b)}`;
 const when = t => { const d = new Date(t); return (d.toDateString() === new Date().toDateString() ? 'Today' : d.toLocaleDateString([], { month: 'short', day: 'numeric' })) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); };
 const blockedBy = it => items.filter(o => o.status !== 'done' && o.links?.some(l => l.t === 'blocks' && l.id === it.id));
+const epicProgress = e => { const k = items.filter(i => i.epic === e.id && !i.parent && i.type !== 'epic'); return k.length ? [k.filter(x => x.status === 'done').length, k.length] : null; };
+// doing first, done last; then earliest due (undated last), then high priority first
+const RANK = { doing: 0, todo: 1, done: 2 }, PR = { high: 0, med: 1, low: 2 };
+const byRank = (a, b) => RANK[a.status] - RANK[b.status] || (a.due || '9').localeCompare(b.due || '9') || PR[a.priority || 'med'] - PR[b.priority || 'med'];
+const hasKids = it => items.some(i => i.parent === it.id || (it.type === 'epic' && i.epic === it.id));
+const togBtn = it => hasKids(it) ? `<button class="tog" data-act="tog" data-id="${it.id}" aria-label="${collapsed.has(it.id) ? 'Expand' : 'Collapse'}">${collapsed.has(it.id) ? '▸' : '▾'}</button>` : '<span class="tog"></span>';
 const subs = id => items.filter(i => i.parent === id);
 const progress = it => { const k = subs(it.id); return k.length ? [k.filter(x => x.status === 'done').length, k.length] : null; };
 const epicOf = it => it.type === 'epic' ? it.title : (epicItem(it.epic)?.title || 'No epic');
@@ -233,24 +258,35 @@ const tabbar = () => `<nav class="tabbar">${Object.entries(VIEWS).map(([v, [l, ,
   `<button data-act="tab" data-id="${v}" class="${view === v ? 'on' : ''}" aria-label="${l}"><svg viewBox="0 0 24 24">${icon}</svg>${l}</button>`).join('')}</nav>`;
 const rowHtml = (it, sub) => {
   const late = it.due && it.status !== 'done' && it.due < today();
-  const pr = progress(it);
-  const meta = [it.type, it.status, pr ? `${pr[0]}/${pr[1]} subtasks` : '', it.status !== 'done' && blockedBy(it).length ? 'blocked' : '', it.priority && it.priority !== 'med' ? it.priority : '', it.due ? 'due ' + short(it.due) : '', minutesFor(it) ? fmt(minutesFor(it)) : ''].filter(Boolean).join(' · ');
-  return `<div class="item ${sub === 1 ? 'sub' : sub === 2 ? 'sub sub2' : ''} ${it.type === 'epic' ? 'epicrow' : ''}" data-act="open" data-id="${it.id}"><span class="dot ${it.type}"></span><div class="txt">${esc(it.title)}<small class="${late ? 'late' : ''}">${meta}</small></div><span class="chev">›</span></div>`;
+  const pr = progress(it), ep = it.type === 'epic' ? epicProgress(it) : null;
+  const meta = [it.type, it.status, ep ? `${ep[0]}/${ep[1]} done` : '', pr ? `${pr[0]}/${pr[1]} subtasks` : '', it.status !== 'done' && blockedBy(it).length ? 'blocked' : '', it.priority && it.priority !== 'med' ? it.priority : '', it.due ? 'due ' + short(it.due) : '', minutesFor(it) ? fmt(minutesFor(it)) : ''].filter(Boolean).join(' · ');
+  return `<div class="item ${sub === 1 ? 'sub' : sub === 2 ? 'sub sub2' : ''} ${it.type === 'epic' ? 'epicrow' : ''}" data-act="open" data-id="${it.id}">${view === 'list' ? togBtn(it) : ''}<span class="dot ${it.type}"></span><div class="txt">${esc(it.title)}<small class="${late ? 'late' : ''}">${meta}</small>${ep ? `<div class="prog" style="margin:6px 0 0"><i style="width:${ep[0] / ep[1] * 100}%"></i></div>` : ''}</div><span class="chev">›</span></div>`;
 };
 const group = rows => rows ? `<div class="group">${rows}</div>` : '';
 // [overdue, due today] among items not done
 const dueCounts = () => { const t = today(), o = items.filter(i => i.due && i.status !== 'done'); return [o.filter(i => i.due < t).length, o.filter(i => i.due === t).length]; };
 
-function listHtml() {
-  const epics = items.filter(i => i.type === 'epic');
-  const t = today(), [late, due] = dueCounts();
-  const shown = it => filter === 'today' ? it.due && it.due <= t && it.status !== 'done' : filter === 'all' || it.status === filter;
-  const shownSubs = p => subs(p.id).filter(shown);
+// the part of the list that search redraws, so typing keeps focus
+function listRows() {
+  const epics = items.filter(i => i.type === 'epic'), t = today(), n = q.trim().toLowerCase();
+  const hit = it => !n || `${it.title} ${it.desc || ''}`.toLowerCase().includes(n);
+  const shown = it => hit(it) && (filter === 'today' ? it.due && it.due <= t && it.status !== 'done' : filter === 'open' ? it.status !== 'done' : filter === 'all' || it.status === filter);
+  const shownSubs = p => subs(p.id).filter(shown).sort(byRank);
   const top = i => i.type !== 'epic' && !i.parent && (shown(i) || shownSubs(i).length);
-  const withSubs = i => rowHtml(i, 1) + shownSubs(i).map(k => rowHtml(k, 2)).join('');
-  const kids = e => items.filter(i => top(i) && i.epic === e.id);
-  const orphans = items.filter(i => top(i) && !epicItem(i.epic));
-  return header(adding ? '' : `<button class="add" data-act="add" aria-label="Add item">+</button>`) +
+  const open = id => n || !collapsed.has(id);
+  const withSubs = (i, lvl) => rowHtml(i, lvl) + (open(i.id) ? shownSubs(i).map(k => rowHtml(k, 2)).join('') : '');
+  const kids = e => items.filter(i => top(i) && i.epic === e.id).sort(byRank);
+  const orphans = items.filter(i => top(i) && !epicItem(i.epic)).sort(byRank);
+  const eps = epics.filter(e => !n || hit(e) || kids(e).length);
+  return eps.map(e => group(rowHtml(e) + (open(e.id) ? kids(e).map(i => withSubs(i, 1)).join('') : ''))).join('') +
+    (orphans.length ? `<h2>No epic</h2>${group(orphans.map(i => withSubs(i, 0)).join(''))}` : '') +
+    (items.length ? (n && !eps.length && !orphans.length ? '<p class="muted">No matches.</p>' : '') : '<p class="muted">No items yet. Add an epic, then tasks, bugs and improvements under it.</p>');
+}
+
+function listHtml() {
+  const epics = items.filter(i => i.type === 'epic'), [late, due] = dueCounts();
+  const groups = items.filter(hasKids), allShut = groups.length && groups.every(g => collapsed.has(g.id));
+  return header((groups.length ? `<button class="link" data-act="colall" style="margin-right:12px">${allShut ? 'Expand all' : 'Collapse all'}</button>` : '') + (adding ? '' : `<button class="add" data-act="add" aria-label="Add item">+</button>`)) +
     (late || due ? `<button class="today ${filter === 'today' ? 'on' : ''}" data-act="filter" data-id="${filter === 'today' ? 'all' : 'today'}">${[late && late + ' overdue', due && due + ' due today'].filter(Boolean).join(' · ')}</button>` : '') +
     (adding
       ? `<div class="card" style="padding:12px"><input id="nt" placeholder="Title" aria-label="Title">
@@ -259,10 +295,9 @@ function listHtml() {
          <div class="row"><label>Start<input id="ns" type="date"></label><label>Due<input id="nd" type="date"></label></div>
          <div class="row"><button data-act="add">Cancel</button><button class="primary" data-act="create">Add</button></div></div>`
       : '') +
-    `<div class="seg">${['all', ...STATUS].map(f => `<button data-act="filter" data-id="${f}" class="${filter === f ? 'on' : ''}">${f}</button>`).join('')}</div>` +
-    epics.map(e => group(rowHtml(e) + kids(e).map(withSubs).join(''))).join('') +
-    (orphans.length ? `<h2>No epic</h2>${group(orphans.map(i => rowHtml(i, 0) + shownSubs(i).map(k => rowHtml(k, 2)).join('')).join(''))}` : '') +
-    (items.length ? '' : '<p class="muted">No items yet. Add an epic, then tasks, bugs and improvements under it.</p>');
+    (items.length > 4 ? `<input id="q" type="search" placeholder="Search" aria-label="Search" value="${esc(q)}">` : '') +
+    `<div class="seg">${['all', 'open', ...STATUS].map(f => `<button data-act="filter" data-id="${f}" class="${filter === f ? 'on' : ''}">${f}</button>`).join('')}</div>` +
+    `<div id="res">${listRows()}</div>`;
 }
 
 function boardHtml() {
@@ -273,14 +308,14 @@ function boardHtml() {
 
 function ganttHtml() {
   const t = today(), epics = items.filter(i => i.type === 'epic');
-  const ws = i => [i, ...subs(i.id)], plain = i => i.type !== 'epic' && !i.parent;
-  const order = [...epics.filter(e => !gfilter || gfilter === e.id).flatMap(e => [e, ...items.filter(i => plain(i) && i.epic === e.id).flatMap(ws)]), ...(!gfilter || gfilter === 'none' ? items.filter(i => plain(i) && !epicItem(i.epic)).flatMap(ws) : [])];
+  const ws = i => [i, ...(collapsed.has(i.id) ? [] : subs(i.id))], plain = i => i.type !== 'epic' && !i.parent;
+  const order = [...epics.filter(e => !gfilter || gfilter === e.id).flatMap(e => [e, ...(collapsed.has(e.id) ? [] : items.filter(i => plain(i) && i.epic === e.id).flatMap(ws))]), ...(!gfilter || gfilter === 'none' ? items.filter(i => plain(i) && !epicItem(i.epic)).flatMap(ws) : [])];
   const rows = order.map(it => [it, span(it)]);
   const dated = rows.filter(r => r[1]);
   const lo = addDays([t, ...dated.map(r => r[1][0])].sort()[0], -1), hi = addDays([t, ...dated.map(r => r[1][1])].sort().pop(), 6);
   const n = diff(lo, hi) + 1, x = diff(lo, t) * DAY;
   const head = Array.from({ length: n }, (_, i) => addDays(lo, i)), wd = d => new Date(d + 'T00:00').getDay();
-  const names = dated.map(([it, [s, e]]) => `<div class="g-n ${it.type === 'epic' ? 'epicrow' : it.parent ? 'sub' : ''}" data-act="open" data-id="${it.id}"><span class="dot ${it.type}"></span><div class="txt"><div>${esc(it.title)}</div><small data-lab="${it.id}">${range(s, e)}</small></div></div>`).join('');
+  const names = dated.map(([it, [s, e]]) => `<div class="g-n ${it.type === 'epic' ? 'epicrow' : it.parent ? 'sub' : ''}" data-act="open" data-id="${it.id}">${togBtn(it)}<span class="dot ${it.type}"></span><div class="txt"><div>${esc(it.title)}</div><small data-lab="${it.id}">${range(s, e)}</small></div></div>`).join('');
   const bars = dated.map(([it, [s, e]]) => {
     const left = diff(lo, s) * DAY, w = (diff(s, e) + 1) * DAY;
     return `<div class="g-r"><div class="g-b ${it.type} ${it.status === 'done' ? 'done' : ''}" style="left:${left}px;width:${w}px" data-bar="${it.id}"><i class="h l"></i><i class="h r"></i>${w >= 3 * DAY ? `<span>${esc(it.title)}</span>` : ''}</div></div>`;
@@ -349,7 +384,9 @@ function statsHtml() {
   const wk = new Date(day); wk.setDate(day.getDate() - ((day.getDay() + 6) % 7)); // Monday
   const tot = o => fmt(Object.values(o).reduce((a, b) => a + b, 0));
   const td = sum(+day, epicOf), w = sum(+wk, epicOf);
-  return header() + `<h2>Today: ${tot(td)}</h2>${barsHtml(td)}
+  const ago = settings.lastExport ? Math.floor((Date.now() - settings.lastExport) / 864e5) : null;
+  const nudge = items.length && (ago === null || ago >= 7) ? `<div class="card" style="padding:12px 16px;color:var(--red)">${ago === null ? 'You have never exported a backup.' : `Last backup was ${ago} days ago.`} Your data only lives on this phone. Tap Export below.</div>` : '';
+  return header() + nudge + `<h2>Today: ${tot(td)}</h2>${barsHtml(td)}
     <h2>This week: ${tot(w)} · by epic</h2>${barsHtml(w)}
     <h2>This week · by type</h2>${barsHtml(sum(+wk, it => it.type))}
     <h2>This week · top items</h2>${barsHtml(sum(+wk, it => it.title))}
@@ -358,13 +395,15 @@ function statsHtml() {
     <h2>Data</h2>
     <div class="row"><button data-act="export" style="background:var(--card)">Export</button><button data-act="import" style="background:var(--card)">Import</button></div>
     <input type="file" id="file" accept="application/json,.json" hidden>
-    <div class="muted" style="padding:0 4px">Export saves a .json file. Import replaces this device's data with a file.</div>`;
+    <div class="muted" style="padding:0 4px">Export saves a .json file. Import replaces this device's data with a file.<br>Last backup: ${ago === null ? 'never' : ago === 0 ? 'today' : ago + ' days ago'}</div>`;
 }
 
 function exportData() {
+  settings.lastExport = Date.now(); persist();
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify({ items, sessions, settings }, null, 2)], { type: 'application/json' }));
   a.download = `tasks-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  render();
 }
 
 async function importFile(f) {
@@ -386,6 +425,7 @@ function render() {
   document.querySelectorAll('meta[name=theme-color]').forEach(m => m.content = getComputedStyle(document.body).backgroundColor);
   const foot = st && !(view === 'item' && cur === st.item)
     ? `<div class="foot" data-act="open" data-id="${st.item}">▶ ${esc(byId(st.item)?.title ?? '')} · <span class="ft"></span></div>` : '';
+  document.body.className = 'v-' + view; // prefixed: .board, .gantt and .item are component classes
   const kept = $('gantt')?.scrollLeft; // a redraw after a drag must not jump the chart
   $('app').innerHTML = ({ list: listHtml, board: boardHtml, gantt: ganttHtml, stats: statsHtml, item: itemHtml })[view]() + foot + (view === 'item' ? '' : tabbar()) + (ask ? askSheet() : '');
   const g = $('gantt'); if (g) g.scrollLeft = kept ?? g.dataset.x - 60; // else start near today
@@ -413,6 +453,8 @@ document.onclick = e => {
   }
   else if (act === 'open') { view = 'item'; cur = id; }
   else if (act === 'back') { if (it?.parent) cur = it.parent; else { view = 'list'; cur = null; } }
+  else if (act === 'tog') collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id);
+  else if (act === 'colall') { const g = items.filter(hasKids); g.every(x => collapsed.has(x.id)) ? collapsed.clear() : g.forEach(x => collapsed.add(x.id)); }
   else if (act === 'gnew') gnew = { s: today(), e: today() };
   else if (act === 'gcancel') gnew = null;
   else if (act === 'gcreate') {
@@ -451,7 +493,13 @@ document.onclick = e => {
   if (ask && byId(ask.id)?.status === ask.to) ask = null; // tapping the current status asks nothing
   persist(); render();
 };
-document.onkeydown = e => { if (e.key === 'Enter' && e.target.id === 'nsub') document.querySelector('[data-act=addsub]').click(); };
+document.oninput = e => { if (e.target.id === 'q') { q = e.target.value; $('res').innerHTML = listRows(); } };
+const press = a => document.querySelector(`[data-act=${a}]:not(.back)`)?.click();
+document.onkeydown = e => {
+  const id = e.target.id, ENTER = { nsub: 'addsub', nt: 'create', gt: 'gcreate', asknote: 'askok' };
+  if (e.key === 'Enter' && ENTER[id]) press(ENTER[id]);
+  else if (e.key === 'Escape') ask ? press('askno') : gnew ? press('gcancel') : adding && press('add');
+};
 document.onchange = e => {
   const f = e.target.dataset.f, v = e.target.value;
   if (e.target.id === 'file') return importFile(e.target.files[0]);
@@ -505,6 +553,7 @@ document.onpointerup = () => {
   render();
 };
 
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js'); // offline: see sw.js
 setInterval(tick, 500);
 document.addEventListener('visibilitychange', tick);
 render();
@@ -531,6 +580,10 @@ if (location.search === '?test') {
   items.find(i => i.id === 'q').links = [{ t: 'blocks', id: 'u' }];
   console.assert(blockedBy(items[2]).length === 1 && (items.find(i => i.id === 'q').status = 'done', blockedBy(items[2]).length === 0), 'blocked until the blocker is done');
   const pq = items.find(i => i.id === 'q'); setField(pq, 'parent', ''); console.assert(!pq.parent, 'parent cleared');
+  const ord = [{ status: 'done', due: '2026-01-01' }, { status: 'todo', due: '2026-03-01', priority: 'low' }, { status: 'doing' }, { status: 'todo', due: '2026-02-01' }, { status: 'todo', due: '2026-03-01', priority: 'high' }].sort(byRank);
+  console.assert(ord.map(o => o.status[0] + (o.due || '').slice(5, 7)).join() === 'd,t02,t03,t03,d01' && ord[2].priority === 'high', 'sort: doing, due, priority, done last');
+  items.find(i => i.id === 'q').parent = 'p'; items.find(i => i.id === 't').status = 'done'; // q was unparented above
+  console.assert(epicProgress(items[0]).join() === '1,3', 'epic progress counts top-level children only');
   [items, sessions] = keep; console.log('ok');
 }
 </script>
