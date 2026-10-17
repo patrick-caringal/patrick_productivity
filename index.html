@@ -38,7 +38,11 @@
   .row > button { flex:1; }
   .seg { display:flex; padding:2px; margin:4px 0 12px; border-radius:9px; background:var(--fill); }
   .seg button { flex:1; padding:6px 4px; border-radius:7px; background:none; color:var(--fg); font-size:13px; font-weight:500; text-transform:capitalize; }
-  .seg button.on { background:var(--card); font-weight:600; box-shadow:0 1px 4px rgba(0,0,0,.12); }
+  .seg button.on { background:var(--accent); color:#fff; font-weight:600; box-shadow:0 1px 4px rgba(0,122,255,.35); }
+  .sheet { position:fixed; inset:0; z-index:10; display:flex; align-items:flex-end; }
+  .sheet .back { position:absolute; inset:0; background:rgba(0,0,0,.4); padding:0; border-radius:0; }
+  .sheet .panel { position:relative; width:100%; max-width:640px; margin:0 auto; box-sizing:border-box; background:var(--card); border-radius:20px 20px 0 0; padding:20px 16px calc(16px + env(safe-area-inset-bottom)); }
+  .sheet h3 { margin:0 0 4px; font-size:20px; } .sheet .panel input { background:var(--fill); margin:14px 0; }
   .group { background:var(--card); border-radius:12px; overflow:hidden; margin:8px 0; }
   .item { display:flex; align-items:center; gap:12px; padding:11px 16px; cursor:pointer; position:relative; }
   .item:active { background:var(--fill); }
@@ -136,6 +140,7 @@ let items = load('items', []);       // {id, type, title, desc, epic, status, pr
 let sessions = load('sessions', []); // {start, min, item} - epic/type are looked up via the item
 let st = load('pomodoro-state', null); // running timer {work, item, start, end}
 let settings = { theme: 'system', work: 25, brk: 5, ...load('settings', {}) }; // minutes
+let ask = null; // pending status change {id, to}, waits for confirmation
 let gfilter = ''; // gantt: epic id, 'none', or '' for all
 let gnew = null; // gantt: dates picked for a new task
 let view = 'list', cur = null, filter = 'all', adding = false, isWork = true;
@@ -150,6 +155,14 @@ function setStatus(it, to) {
   (it.log ??= []).push({ at: Date.now(), from: it.status, to, note: '' });
   it.status = to;
 }
+const askSheet = () => {
+  const it = byId(ask.id);
+  return `<div class="sheet"><button class="back" data-act="askno" aria-label="Cancel"></button><div class="panel"><h3>Change status?</h3>
+    <div><span class="muted" style="display:inline">${esc(it.title)}</span></div>
+    <div style="margin-top:10px"><span class="pill">${it.status}</span> → <span class="pill" style="background:var(--accent);color:#fff">${ask.to}</span></div>
+    <input id="asknote" placeholder="Add a note (optional)" aria-label="Note">
+    <div class="row"><button data-act="askno">Cancel</button><button class="primary" data-act="askok">Confirm</button></div></div></div>`;
+};
 function setField(it, f, v) {
   if (f === 'parent') { if (v) { it.parent = v; it.epic = byId(v).epic; } else delete it.parent; return; }
   it[f] = f === 'epic' ? v || null : v;
@@ -374,7 +387,7 @@ function render() {
   const foot = st && !(view === 'item' && cur === st.item)
     ? `<div class="foot" data-act="open" data-id="${st.item}">▶ ${esc(byId(st.item)?.title ?? '')} · <span class="ft"></span></div>` : '';
   const kept = $('gantt')?.scrollLeft; // a redraw after a drag must not jump the chart
-  $('app').innerHTML = ({ list: listHtml, board: boardHtml, gantt: ganttHtml, stats: statsHtml, item: itemHtml })[view]() + foot + (view === 'item' ? '' : tabbar());
+  $('app').innerHTML = ({ list: listHtml, board: boardHtml, gantt: ganttHtml, stats: statsHtml, item: itemHtml })[view]() + foot + (view === 'item' ? '' : tabbar()) + (ask ? askSheet() : '');
   const g = $('gantt'); if (g) g.scrollLeft = kept ?? g.dataset.x - 60; // else start near today
   tick();
   if (gnew && $('gt') && !$('gt').dataset.seen) { $('gt').dataset.seen = 1; window.scrollTo(0, 0); $('gt').focus(); }
@@ -383,7 +396,7 @@ function render() {
 document.onclick = e => {
   const b = e.target.closest('button[data-act], div[data-act]'); if (!b) return;
   const { act, id } = b.dataset, it = byId(cur);
-  if (act === 'tab') { view = id; cur = null; gnew = null; }
+  if (act === 'tab') { view = id; cur = null; gnew = null; ask = null; }
   else if (act === 'export') return exportData();
   else if (act === 'import') return $('file').click(); // no render: it would drop the file input mid-dialog
   else if (act === 'today') return void ($('gantt').scrollLeft = $('gantt').dataset.x - 60);
@@ -413,14 +426,16 @@ document.onclick = e => {
     (a.links ??= []).push(l);
   }
   else if (act === 'unlink') { const a = byId(b.dataset.from); a.links = a.links.filter(l => !(l.id === b.dataset.to && l.t === b.dataset.t)); }
-  else if (act === 'toggle') { const k = byId(id); setStatus(k, k.status === 'done' ? 'todo' : 'done'); }
+  else if (act === 'toggle') { const k = byId(id); ask = { id, to: k.status === 'done' ? 'todo' : 'done' }; }
   else if (act === 'addsub') {
     const title = $('nsub').value.trim(); if (!title) return $('nsub').focus();
     items.push({ id: crypto.randomUUID().slice(0, 8), type: 'task', title, desc: '', epic: it.epic, parent: it.id, status: 'todo', priority: 'med', log: [{ at: Date.now(), from: null, to: 'todo', note: '' }], start: '', due: '' });
     persist(); render(); return $('nsub').focus();
   }
-  else if (act === 'status') setStatus(it, id);
-  else if (act === 'move') setStatus(byId(id), b.dataset.to);
+  else if (act === 'status') ask = { id: cur, to: id };
+  else if (act === 'move') ask = { id, to: b.dataset.to };
+  else if (act === 'askno') ask = null;
+  else if (act === 'askok') { const k = byId(ask.id), note = $('asknote').value.trim(); setStatus(k, ask.to); if (note) k.log.at(-1).note = note; ask = null; }
   else if (act === 'start' && !st) {
     st = { work: isWork, item: cur, start: Date.now(), end: Date.now() + len() * 60000, min: len() };
     if (isWork && it.status === 'todo') setStatus(it, 'doing');
@@ -433,6 +448,7 @@ document.onclick = e => {
     if (st && gone.has(st.item)) st = null;
     if (p) cur = p; else { view = 'list'; cur = null; }
   }
+  if (ask && byId(ask.id)?.status === ask.to) ask = null; // tapping the current status asks nothing
   persist(); render();
 };
 document.onkeydown = e => { if (e.key === 'Enter' && e.target.id === 'nsub') document.querySelector('[data-act=addsub]').click(); };
