@@ -40,6 +40,12 @@
   .seg button.on { background:var(--surface); color:var(--fg); box-shadow:0 1px 2px rgba(0,0,0,.14); }
 .hb svg { display:block; width:22px; height:22px; }
   .sq { flex:1; min-width:0; padding:9px 12px; border:1px solid var(--line); border-radius:10px; outline:0; background:var(--surface); -webkit-appearance:none; appearance:none; }
+  .today { display:block; width:100%; margin:0 0 12px; padding:10px 14px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--bug); font-weight:550; text-align:left; }
+  .today.on { background:var(--bug); border-color:var(--bug); color:#fff; }
+  .nudge { margin-bottom:12px; padding:12px 16px; color:var(--bug); }
+  .act { padding:10px 14px; border-top:1px solid var(--line); } .card > .act:first-child { border-top:0; }
+  .act > div { display:flex; justify-content:space-between; gap:8px; }
+  .act input { width:100%; margin-top:6px; padding:4px 0; border:0; border-bottom:1px solid var(--line); outline:0; background:none; font-size:14px; }
   .fsel { display:block; width:100%; margin:0 0 12px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
   .card { background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
   h2.sh { margin:22px 4px 8px; font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
@@ -139,7 +145,7 @@
 <div id="sheet"></div>
 
 <script>
-const WORK = 25, BREAK = 5, DAY = 28; // minutes; gantt day width in px
+const DAY = 28; // gantt day width in px
 const KEY = 'PAT'; // issue key prefix, e.g. PAT-12
 const TYPES = ['epic', 'task', 'bug', 'improvement', 'subtask'], STATUS = ['todo', 'doing', 'done'], PRIO = ['low', 'med', 'high'];
 const LABEL = { todo: 'To do', doing: 'In progress', done: 'Done' };
@@ -157,33 +163,57 @@ const short = s => new Date(s + 'T00:00').toLocaleDateString([], { month: 'short
 let items = load('items', []);       // {id, key, type, title, desc, epic, parent, status, priority, start, due}
 let sessions = load('sessions', []); // {start, min, item} - epic/type are looked up via the item
 let seq = load('seq', 0);            // last issue number handed out; not reused after a delete
-let st = load('pomodoro-state', null); // running timer {work, item, start, end}
+let st = load('pomodoro-state', null); // running timer {work, item, start, end, min}
+const settings = { work: 25, brk: 5, ...load('settings', {}) }; // focus and break minutes, and lastExport (when you last saved a backup)
+let msg = '', imp = null; // msg: result of the last import; imp: a file waiting for Merge or Replace
 let view = 'list', prev = 'list', cur = null, filter = 'open', adding = false, newType = 'task', newEpic = '', gfilter = 'open', gepic = '', bepic = '', bfilter = 'all', bdone = false, query = '', home = 'list', isWork = true; // query: the search text; home: the last main view, where Back from search returns // gfilter/gepic: the Timeline's status and epic filters; bepic/bdone: the Board's epic filter and whether its Done column is open
 const folded = load('collapsed', []);
 let collapsed = new Set(Array.isArray(folded) ? folded : []); // epic ids and task ids folded in the list (a per-device convenience)
+const len = () => isWork ? settings.work : settings.brk; // minutes of the current focus or break
 const peek = new Set(); // tasks whose subtasks are expanded on an epic screen; closed again on reload
 
 const byId = id => items.find(i => i.id === id);
 const epicItem = id => { const e = byId(id); return e?.type === 'epic' ? e : null; };
-const persist = () => { save('items', items); save('sessions', sessions); save('pomodoro-state', st); save('seq', seq); };
+// every item carries `at`, the time it last changed; merge import uses it to pick the newer copy
+const sig = ({ at, ...rest }) => JSON.stringify(rest);
+let seen = new Map(items.map(i => [i.id, sig(i)])); // items as last saved, so only real edits bump `at`
+const markSeen = () => { seen = new Map(items.map(i => [i.id, sig(i)])); };
+const persist = () => {
+  for (const i of items) if (seen.get(i.id) !== sig(i)) { i.at = Date.now(); seen.set(i.id, sig(i)); }
+  save('items', items); save('sessions', sessions); save('pomodoro-state', st); save('seq', seq); save('settings', settings);
+};
 // repairs items from older versions and exports: gives keys to items without one, moves old prefixes (PP-12) to the current one (PAT-12),
 // and turns a task that has a parent into a subtask
-const fixItems = () => items.forEach(i => {
+const fixItems = (list = items) => list.forEach(i => {
   i.key = i.key ? String(i.key).replace(/^[A-Za-z]+-/, `${KEY}-`) : `${KEY}-${++seq}`;
   if (i.parent && i.type !== 'epic' && i.type !== 'subtask') i.type = 'subtask';
 });
 fixItems();
-const newItem = o => items.push({ id: (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)).slice(0, 8), key: `${KEY}-${++seq}`, desc: '', epic: null, parent: null, status: 'todo', priority: 'med', start: '', due: '', ...o });
+markSeen(); // repairs on load are not edits
+const newItem = o => items.push({ id: (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)).slice(0, 8), key: `${KEY}-${++seq}`, desc: '', epic: null, parent: null, status: 'todo', priority: 'med', start: '', due: '', log: [{ at: Date.now(), from: null, to: 'todo', note: '' }], ...o });
+// status change with an activity entry; a note can be added later from the item's Activity list
+function setStatus(it, to) {
+  if (it.status === to) return;
+  (it.log ??= []).push({ at: Date.now(), from: it.status, to, note: '' });
+  it.status = to;
+}
 const canParent = i => i.type !== 'epic' && i.type !== 'subtask';
 const epicId = it => it.type === 'subtask' && byId(it.parent) ? byId(it.parent).epic : it.epic; // a subtask lives in its parent's epic
 const epicOf = it => it.type === 'epic' ? it.title : (epicItem(epicId(it))?.title || 'No epic');
 const real = i => i.type !== 'epic' && i.type !== 'subtask';
 const FILTERS = [['open', 'Open'], ['doing', 'In progress'], ['done', 'Done'], ['all', 'All']];
-const statusOk = (f, it) => f === 'all' || (f === 'open' ? it.status !== 'done' : it.status === f);
+const statusOk = (f, it) => f === 'all' || (f === 'late' ? it.status !== 'done' && !!it.due && it.due <= today() : f === 'open' ? it.status !== 'done' : it.status === f);
 // an epic is done when marked done or when all its tasks are done
 const epicDone = e => { const k = items.filter(i => real(i) && epicId(i) === e.id); return e.status === 'done' || (k.length > 0 && k.every(i => i.status === 'done')); };
 // does an epic belong under filter f when n of its tasks match? (a new empty epic stays under Open)
 const showEpic = (e, n, f) => f === 'all' || n > 0 || (f === 'open' ? !epicDone(e) : f === 'done' ? epicDone(e) : e.status === f);
+
+// doing first, done last; then earliest due (undated last), then high priority first
+const RANK = { doing: 0, todo: 1, done: 2 }, PR = { high: 0, med: 1, low: 2 };
+const byUrgency = (a, b) => (RANK[a.status] ?? 1) - (RANK[b.status] ?? 1) || (a.due || '9999').localeCompare(b.due || '9999') || (PR[a.priority] ?? 1) - (PR[b.priority] ?? 1);
+// [overdue, due today] among items not done
+const dueCounts = () => { const t = today(), o = items.filter(i => i.type !== 'epic' && i.due && i.status !== 'done'); return [o.filter(i => i.due < t).length, o.filter(i => i.due === t).length]; };
+const when = t => { const d = new Date(t); return (d.toDateString() === new Date().toDateString() ? 'Today' : d.toLocaleDateString([], { month: 'short', day: 'numeric' })) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); };
 
 // "All epics" dropdown shared by the Board and Timeline filters
 const epicSelect = (id, v) => `<select class="fsel" id="${id}" aria-label="Filter by epic"><option value="">All epics</option>${items.filter(i => i.type === 'epic').map(e => `<option value="${e.id}" ${e.id === v ? 'selected' : ''}>${esc(e.key)} ${esc(e.title)}</option>`).join('')}</select>`;
@@ -191,12 +221,12 @@ const chev = open => `<svg class="chev ${open ? 'open' : ''}" viewBox="0 0 14 14
 
 // [[epic and its tasks], [epic-less tasks]] as [item, depth]; subtasks nest under their parent.
 // `ok` filters tasks/subtasks; a task stays visible when one of its subtasks passes.
-function tree(ok = () => true) {
+function tree(ok = () => true, cmp = () => 0) {
   const top = i => i.type !== 'epic' && !(i.type === 'subtask' && byId(i.parent)) && (ok(i) || items.some(s => s.parent === i.id && ok(s)));
-  const withSubs = (i, d) => [[i, d], ...items.filter(s => s.type === 'subtask' && s.parent === i.id && ok(s)).map(s => [s, d + 1])];
+  const withSubs = (i, d) => [[i, d], ...items.filter(s => s.type === 'subtask' && s.parent === i.id && ok(s)).sort(cmp).map(s => [s, d + 1])];
   return [
-    items.filter(i => i.type === 'epic').flatMap(e => [[e, 0], ...items.filter(i => top(i) && epicId(i) === e.id).flatMap(i => withSubs(i, 1))]),
-    items.filter(i => top(i) && !epicItem(epicId(i))).flatMap(i => withSubs(i, 0))
+    items.filter(i => i.type === 'epic').flatMap(e => [[e, 0], ...items.filter(i => top(i) && epicId(i) === e.id).sort(cmp).flatMap(i => withSubs(i, 1))]),
+    items.filter(i => top(i) && !epicItem(epicId(i))).sort(cmp).flatMap(i => withSubs(i, 0))
   ];
 }
 
@@ -228,13 +258,13 @@ function beep() {
 }
 
 function finish() {
-  if (st.work) sessions.push({ start: st.start, min: WORK, item: st.item });
+  if (st.work) sessions.push({ start: st.start, min: st.min ?? settings.work, item: st.item });
   isWork = !st.work; st = null; persist(); beep(); render();
 }
 
 function tick() {
   if (st && Date.now() >= st.end) return finish();
-  const t = mmss(st ? Math.max(0, Math.ceil((st.end - Date.now()) / 1000)) : (isWork ? WORK : BREAK) * 60);
+  const t = mmss(st ? Math.max(0, Math.ceil((st.end - Date.now()) / 1000)) : len() * 60);
   document.querySelectorAll('.ft').forEach(e => e.textContent = t);
   const pct = st ? (1 - (st.end - Date.now()) / (st.end - st.start)) * 100 : 0;
   document.querySelectorAll('.ring').forEach(r => r.style.setProperty('--p', pct));
@@ -276,7 +306,9 @@ const secHead = (id, icon, key, title, done, total, openId, n) =>
 
 // ---- views
 function listHtml() {
-  const [grouped, loose] = tree(it => statusOk(filter, it));
+  const [grouped, loose] = tree(it => statusOk(filter, it), byUrgency);
+  const [late, dueToday] = dueCounts();
+  const banner = late || dueToday ? `<button class="today ${filter === 'late' ? 'on' : ''}" data-act="filter" data-id="${filter === 'late' ? 'open' : 'late'}">${[late && late + ' overdue', dueToday && dueToday + ' due today'].filter(Boolean).join(' · ')}</button>` : '';
   const secs = [];
   const hidden = it => it.type === 'subtask' && collapsed.has(it.parent); // its task is folded
   for (const [it, d] of grouped) { if (it.type === 'epic') secs.push({ e: it, rows: [] }); else if (!hidden(it)) secs[secs.length - 1].rows.push(rowHtml(it, d - 1, false, !collapsed.has(it.id))); }
@@ -284,7 +316,7 @@ function listHtml() {
   const none = loose.filter(([it]) => !hidden(it)).map(([it, d]) => rowHtml(it, d, false, !collapsed.has(it.id)));
   const prog = list => [list.filter(i => i.status === 'done').length, list.length];
   const block = (id, head, rows) => head + (collapsed.has(id) ? '' : rowsCard(rows));
-  return seg(FILTERS, filter, 'filter') +
+  return seg(FILTERS, filter, 'filter') + banner +
     shown.map(({ e, rows }) => block(e.id, secHead(e.id, typeIcon('epic'), e.key, e.title, ...prog(items.filter(i => real(i) && epicId(i) === e.id)), e.id, rows.length), rows)).join('') +
     (none.length ? block('none', secHead('none', '', '', 'No epic', ...prog(items.filter(i => real(i) && !epicItem(epicId(i)))), undefined, none.length), none) : '') +
     (shown.length || none.length ? '' : items.length ? '<div class="empty"><p>Nothing in this view.</p></div>'
@@ -353,6 +385,11 @@ const epicRows = e => { // an epic's tasks; a task's subtasks show only once exp
   return out;
 };
 
+const activityHtml = it => {
+  const log = (it.log || []).map((l, i) => [l, i]).reverse();
+  return log.length ? `<h2 class="sh">Activity</h2><div class="card">${log.map(([l, i]) => `<div class="act"><div><span>${l.from ? `${LABEL[l.from] ?? esc(l.from)} → ${LABEL[l.to] ?? esc(l.to)}` : 'Created'}</span><span class="muted">${when(l.at)}</span></div><input data-log="${i}" placeholder="Add a note" value="${esc(l.note || '')}" aria-label="Note"></div>`).join('')}</div>` : '';
+};
+
 function itemHtml() {
   const it = byId(cur), running = st && st.item === cur, busy = st && !running;
   const sel = (f, opts, v) => `<select data-f="${f}" aria-label="${f}">${opts.map(o => `<option ${o === v ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
@@ -378,11 +415,12 @@ function itemHtml() {
       <div class="addsub"><input id="st" placeholder="New subtask" aria-label="New subtask"><button class="btn" data-act="addsub">Add</button></div>` : ''}
     <h2 class="sh">Pomodoro · ${fmt(minutesFor(it))} total</h2>
     <div class="pomo">
-      <div class="ring"><div class="${running ? 'ft' : ''}">${running ? '' : mmss((isWork ? WORK : BREAK) * 60)}</div></div>
+      <div class="ring"><div class="${running ? 'ft' : ''}">${running ? '' : mmss(len() * 60)}</div></div>
       <div class="muted">${running ? (st.work ? 'Focus' : 'Break') : (isWork ? 'Focus' : 'Break')}</div>
       <button class="btn primary wide" data-act="${running ? 'stop' : 'start'}" ${busy ? 'disabled' : ''}>${running ? 'Stop' : busy ? 'Timer running on another item' : 'Start'}</button>
       <div class="hist">${hist.map(s => `<div>${new Date(s.start).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · ${s.min}m</div>`).join('')}</div>
-    </div>`;
+    </div>
+    ${activityHtml(it)}`;
 }
 
 function statsHtml() {
@@ -390,15 +428,23 @@ function statsHtml() {
   const wk = new Date(day); wk.setDate(day.getDate() - ((day.getDay() + 6) % 7)); // Monday
   const tot = o => fmt(Object.values(o).reduce((a, b) => a + b, 0));
   const td = sum(+day, epicOf), w = sum(+wk, epicOf);
-  return `<div class="tiles"><div class="tile"><b>${tot(td)}</b><span>Today</span></div><div class="tile"><b>${tot(w)}</b><span>This week</span></div></div>
+  const ago = settings.lastExport ? Math.floor((Date.now() - settings.lastExport) / 864e5) : null;
+  const nudge = items.length && (ago === null || ago >= 7) ? `<div class="card nudge">${ago === null ? 'You have never exported a backup.' : `Your last backup was ${ago} days ago.`} Your data only lives on this device. Use Export below.</div>` : '';
+  return nudge + `<div class="tiles"><div class="tile"><b>${tot(td)}</b><span>Today</span></div><div class="tile"><b>${tot(w)}</b><span>This week</span></div></div>
     <h2 class="sh">Today · by epic</h2>${barsHtml(td)}
     <h2 class="sh">This week · by epic</h2>${barsHtml(w)}
     <h2 class="sh">This week · by type</h2>${barsHtml(sum(+wk, it => it.type))}
     <h2 class="sh">This week · top items</h2>${barsHtml(sum(+wk, it => it.title))}
+    <h2 class="sh">Pomodoro</h2>
+    <div class="props">
+      <label class="prop"><span>Focus (minutes)</span><input type="number" inputmode="numeric" min="1" max="180" data-set="work" value="${settings.work}"></label>
+      <label class="prop"><span>Break (minutes)</span><input type="number" inputmode="numeric" min="1" max="180" data-set="brk" value="${settings.brk}"></label>
+    </div>
     <h2 class="sh">Data</h2>
     <div class="data"><button class="btn" data-act="export">Export</button><button class="btn" data-act="import">Import</button></div>
     <input type="file" id="file" accept="application/json,.json" hidden>
-    <div class="muted" style="padding:0 4px">Export saves a .json file. Import replaces this device's data with a file.</div>`;
+    ${msg ? `<div class="card nudge" style="color:var(--accent)">${esc(msg)}</div>` : ''}
+    <div class="muted" style="padding:0 4px">Export saves a .json file. Import can merge a file into this device or replace everything.<br>Last backup: ${ago === null ? 'never' : ago === 0 ? 'today' : ago + ' days ago'}</div>`;
 }
 
 const sheetHtml = () => {
@@ -423,24 +469,65 @@ function setNewType(t) { // no re-render, so what is already typed in the sheet 
 }
 
 function exportData() {
+  settings.lastExport = Date.now(); persist();
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([JSON.stringify({ items, sessions, seq }, null, 2)], { type: 'application/json' }));
+  a.href = URL.createObjectURL(new Blob([JSON.stringify({ items, sessions, seq, settings }, null, 2)], { type: 'application/json' }));
   a.download = `tasks-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  render();
 }
+
+// merge two datasets: new items are added; for an item in both, the newer edit wins and activity logs are combined; nothing is deleted
+function mergeData(mine, theirs) {
+  const all = new Map(mine.items.map(i => [i.id, i])), logKey = l => `${l.at}|${l.from}|${l.to}`;
+  let added = 0, updated = 0;
+  for (const t of theirs.items) {
+    const m = all.get(t.id);
+    if (!m) { all.set(t.id, t); added++; continue; }
+    const log = new Map();
+    for (const l of [...(m.log || []), ...(t.log || [])]) { const o = log.get(logKey(l)); if (!o || (!o.note && l.note)) log.set(logKey(l), l); }
+    const merged = { ...((t.at || 0) > (m.at || 0) ? t : m), key: m.key, ...(log.size ? { log: [...log.values()].sort((a, b) => a.at - b.at) } : {}) }; // my key stays, so numbers never change under you
+    if (JSON.stringify(merged) !== JSON.stringify(m)) { all.set(t.id, merged); updated++; }
+  }
+  const key = s => `${s.start}|${s.item}`, have = new Set(mine.sessions.map(key));
+  const extra = theirs.sessions.filter(s => !have.has(key(s)));
+  return { items: [...all.values()], sessions: [...mine.sessions, ...extra], added, updated, sessionsAdded: extra.length };
+}
+const maxKey = list => Math.max(0, ...list.map(i => parseInt(String(i.key).split('-')[1]) || 0));
 
 async function importFile(f) {
   if (!f) return;
   try {
     const d = JSON.parse(await f.text());
     if (!Array.isArray(d.items) || !Array.isArray(d.sessions)) throw 0;
-    if (!confirm(`Replace this device's data with ${d.items.length} items and ${d.sessions.length} sessions?`)) return render();
-    items = d.items; sessions = d.sessions;
-    seq = Math.max(d.seq | 0, ...items.map(i => parseInt(String(i.key).split('-')[1]) || 0)); fixItems();
-    if (st && !byId(st.item)) st = null;
-    persist();
+    const mine = seq; seq = Math.max(d.seq | 0, maxKey(d.items)); fixItems(d.items); d.seq = seq; seq = mine; // old exports: key prefixes, keyless items numbered by the file's own count, tasks that have a parent
+    imp = d;
   } catch { alert('Not a valid export file'); }
   render();
 }
+function applyImport(mode) { // 'merge' adds and updates, 'replace' overwrites this device
+  const d = imp; imp = null;
+  if (mode === 'replace') {
+    items = d.items; sessions = d.sessions;
+    for (const k of ['work', 'brk']) if (d.settings?.[k] > 0) settings[k] = d.settings[k];
+    seq = Math.max(d.seq | 0, maxKey(items)); msg = `Replaced with ${items.length} items.`;
+  } else {
+    seq = Math.max(seq, d.seq | 0, maxKey(d.items));
+    const r = mergeData({ items, sessions }, d);
+    items = r.items; sessions = r.sessions;
+    const used = new Set(); items.forEach(i => { if (used.has(i.key)) i.key = `${KEY}-${++seq}`; used.add(i.key); }); // two devices can hand out the same number
+    msg = `Merged: ${r.added} added, ${r.updated} updated, ${r.sessionsAdded} focus sessions added.`;
+  }
+  fixItems(); markSeen(); // merged items keep the edit time they came with
+  if (st && !byId(st.item)) st = null;
+  persist(); render();
+}
+const importSheetHtml = () => `<div class="scrim" data-act="impno"></div><div class="panel"><h3 style="margin:0 0 4px">Import file</h3>
+  <div class="muted" style="margin-bottom:14px">${imp.items.length} items, ${imp.sessions.length} focus sessions</div>
+  <button class="btn primary wide" data-act="impmerge">Merge with this device</button>
+  <div class="muted" style="margin:6px 4px 14px">Adds new items. For items in both, the most recently edited copy wins and activity logs are combined. Nothing is deleted.</div>
+  <button class="btn wide" data-act="imprep" style="color:var(--bug)">Replace this device's data</button>
+  <div class="muted" style="margin:6px 4px 14px">Overwrites everything here with the file.</div>
+  <button class="btn wide" data-act="impno">Cancel</button></div>`;
 
 // ---- shell
 const NAV = {
@@ -469,8 +556,8 @@ function render() {
   $('fab').hidden = !fab; document.body.classList.toggle('hasfab', fab);
   $('foot').innerHTML = st && !(view === 'item' && cur === st.item)
     ? `<div class="pill" data-act="open" data-id="${st.item}"><span>▶ ${esc(byId(st.item)?.title ?? '')}</span><span class="ft"></span></div>` : '';
-  if (!adding) $('sheet').innerHTML = '';
-  else if (!$('sheet').innerHTML) { $('sheet').innerHTML = sheetHtml(); $('nt').focus(); }
+  if (!adding && !imp) $('sheet').innerHTML = '';
+  else if (!$('sheet').innerHTML) { $('sheet').innerHTML = imp ? importSheetHtml() : sheetHtml(); if (!imp) $('nt').focus(); }
   tick();
 }
 
@@ -478,10 +565,13 @@ document.onclick = e => {
   if (Date.now() < suppress) return; // the click that ends a drag-to-schedule must not open the item
   const b = e.target.closest('button[data-act], div[data-act]'); if (!b) return;
   const { act, id } = b.dataset, it = byId(cur);
-  if (act === 'tab') { view = id; cur = null; scrollTo(0, 0); }
+  if (act === 'tab') { view = id; cur = null; msg = ''; scrollTo(0, 0); }
   else if (act === 'export') return exportData();
   else if (act === 'import') return $('file').click(); // no render: it would drop the file input mid-dialog
   else if (act === 'ntype') return setNewType(id);
+  else if (act === 'impmerge') return applyImport('merge');
+  else if (act === 'imprep') return applyImport('replace');
+  else if (act === 'impno') imp = null;
   else if (act === 'filter') filter = id;
   else if (act === 'gfilter') gfilter = id;
   else if (act === 'bfilter') bfilter = id;
@@ -492,7 +582,7 @@ document.onclick = e => {
     set.has(id) ? set.delete(id) : set.add(id);
     if (set === collapsed) save('collapsed', [...collapsed]);
   }
-  else if (act === 'cycle') byId(id).status = STATUS[(STATUS.indexOf(byId(id).status) + 1) % STATUS.length];
+  else if (act === 'cycle') setStatus(byId(id), STATUS[(STATUS.indexOf(byId(id).status) + 1) % STATUS.length]);
   else if (act === 'add') { adding = !adding; newType = 'task'; newEpic = ''; }
   else if (act === 'addepic') { adding = true; newType = 'epic'; newEpic = ''; }
   else if (act === 'addto') { adding = true; newType = 'task'; newEpic = id === 'none' ? '' : id; } // + on a list section: new task in that epic
@@ -511,11 +601,11 @@ document.onclick = e => {
   else if (act === 'open') openItem(id);
   else if (act === 'search') { view = 'search'; scrollTo(0, 0); }
   else if (act === 'back') { view = view === 'search' ? home : prev; cur = null; scrollTo(0, 0); }
-  else if (act === 'status') it.status = id;
-  else if (act === 'move') byId(id).status = b.dataset.to;
+  else if (act === 'status') setStatus(it, id);
+  else if (act === 'move') setStatus(byId(id), b.dataset.to);
   else if (act === 'start' && !st) {
-    st = { work: isWork, item: cur, start: Date.now(), end: Date.now() + (isWork ? WORK : BREAK) * 60000 };
-    if (isWork && it.status === 'todo') it.status = 'doing';
+    st = { work: isWork, item: cur, start: Date.now(), end: Date.now() + len() * 60000, min: len() };
+    if (isWork && it.status === 'todo') setStatus(it, 'doing');
   }
   else if (act === 'stop') st = null; // stopping early logs nothing
   else if (act === 'del' && confirm(`Delete "${it.title}"?`)) {
@@ -529,11 +619,14 @@ document.onclick = e => {
 document.onkeydown = e => { // Enter submits the quick-add boxes and the sheet title
   const b = e.key === 'Enter' && { st: 'addsub', nt: 'create' }[e.target.id];
   if (b) document.querySelector(`[data-act=${b}]`).click();
+  if (e.key === 'Escape' && (adding || imp)) { adding = false; imp = null; render(); }
 };
 document.oninput = e => { if (e.target.id === 'q') { query = e.target.value; $('main').innerHTML = searchHtml(); } }; // live results; only the list is redrawn so the field keeps focus
 document.onchange = e => {
   const f = e.target.dataset.f, v = e.target.value;
   if (e.target.id === 'file') return importFile(e.target.files[0]);
+  if (e.target.dataset.set) { const n = Math.round(+v); if (n >= 1 && n <= 180) settings[e.target.dataset.set] = n; persist(); return render(); }
+  if (e.target.dataset.log != null) { byId(cur).log[+e.target.dataset.log].note = v.trim(); return persist(); } // no render: keep the keyboard
   if (e.target.id === 'gepic') { gepic = v; return render(); }
   if (e.target.id === 'bepic') { bepic = v; return render(); }
   if (!f) return;
@@ -605,6 +698,7 @@ document.onpointerup = e => {
 
 document.onpointercancel = () => { pick?.ghost?.remove(); pick = drag = null; render(); };
 
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {}); // offline: see sw.js; a failed registration just means no offline cache
 setInterval(tick, 500);
 document.addEventListener('visibilitychange', tick);
 render();
@@ -626,6 +720,16 @@ if (location.search === '?test') {
   console.assert(items[0].key === 'PAT-7' && items[1].key === 'PAT-8', 'PP keys renamed, new ones continue the count');
   items = [{ id: 'p', type: 'task', key: 'PAT-1' }, { id: 'c', type: 'task', key: 'PAT-2', parent: 'p' }]; fixItems();
   console.assert(items[0].type === 'task' && items[1].type === 'subtask', 'a task with a parent becomes a subtask');
+  items = [{ id: 'a', status: 'done', due: '2026-01-01' }, { id: 'b', status: 'todo', due: '2026-03-01' }, { id: 'c', status: 'doing' }, { id: 'd', status: 'todo', due: '2026-02-01' }];
+  console.assert(items.slice().sort(byUrgency).map(i => i.id).join('') === 'cdba', 'doing first, then earliest due, done last');
+  items = [{ id: 'a', type: 'task', status: 'todo', due: addDays(today(), -1) }, { id: 'b', type: 'task', status: 'todo', due: today() }, { id: 'c', type: 'task', status: 'done', due: addDays(today(), -1) }];
+  console.assert(dueCounts().join() === '1,1' && statusOk('late', items[0]) && statusOk('late', items[1]) && !statusOk('late', items[2]), 'overdue / due today, done ignored');
+  const z = { id: 'z', status: 'todo' }; setStatus(z, 'doing'); setStatus(z, 'doing');
+  console.assert(z.log.length === 1 && z.log[0].to === 'doing' && z.status === 'doing', 'status change logged once');
+  const mr = mergeData({ items: [{ id: 'm', at: 5, title: 'old', log: [{ at: 1, from: null, to: 'todo', note: '' }] }], sessions: [{ start: 1, item: 'm', min: 25 }] },
+    { items: [{ id: 'm', at: 9, title: 'new', log: [{ at: 1, from: null, to: 'todo', note: 'first' }, { at: 2, from: 'todo', to: 'doing', note: '' }] }, { id: 'n', at: 1 }], sessions: [{ start: 1, item: 'm', min: 25 }, { start: 2, item: 'm', min: 25 }] });
+  const mm = mr.items.find(i => i.id === 'm');
+  console.assert(mr.added === 1 && mr.updated === 1 && mr.sessionsAdded === 1 && mm.title === 'new' && mm.log.length === 2 && mm.log[0].note === 'first', 'merge: newer wins, logs combined, sessions deduplicated');
   [items, sessions, seq] = keep; console.log('ok');
 }
 </script>
