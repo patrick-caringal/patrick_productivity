@@ -13,7 +13,7 @@
 <style>
   :root { color-scheme:light dark; --bg:#f7f7f9; --surface:#fff; --line:#e6e7ec; --fg:#17181c; --muted:#868a94; --accent:#5e6ad2; --tint:rgba(94,106,210,.12);
     --epic:#8b5cf6; --task:#3b82f6; --bug:#ef4444; --improvement:#14b8a6; --subtask:#94a3b8; --todo:#a0a4ad; --doing:#f59e0b; --done:#22c55e;
-    --tab:calc(58px + env(safe-area-inset-bottom)); }
+    --tab:calc(58px + env(safe-area-inset-bottom)); --nw:112px; }
   @media (prefers-color-scheme: dark) { :root { --bg:#0e0f12; --surface:#16171b; --line:#25262c; --fg:#ececf0; --muted:#80848e; --accent:#7f89ea; --tint:rgba(127,137,234,.16); } }
   * { box-sizing:border-box; }
   [hidden] { display:none !important; }
@@ -82,18 +82,21 @@
   .tag { font-size:12px; color:var(--muted); }
 
   .gantt { max-height:52vh; overflow:auto; background:var(--surface); border:1px solid var(--line); border-radius:12px; }
+  .g-wrap { display:flex; width:max-content; min-width:100%; }
+  .g-names { position:sticky; left:0; z-index:4; flex:none; width:var(--nw); min-height:150px; background:var(--surface); border-right:1px solid var(--line); }
+  .g-hh { height:54px; }
+  .g-n { display:flex; align-items:center; gap:6px; height:32px; padding-right:6px; border-top:1px solid var(--line); cursor:pointer; overflow:hidden; }
+  .g-n .tt { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; } .g-n.epic .tt { font-weight:600; } .g-n.done .tt { color:var(--muted); }
+  .g-h .wkn { font-size:10px; color:var(--muted); opacity:.8; text-align:left; text-indent:2px; }
   .g-in { position:relative; min-height:150px; background-image:repeating-linear-gradient(90deg, transparent 0 27px, var(--line) 27px 28px); }
   .g-h { position:relative; z-index:1; display:flex; } .g-h div { flex:none; width:28px; font-size:11px; line-height:18px; text-align:center; color:var(--muted); white-space:nowrap; }
   .g-h .tod { color:var(--accent); font-weight:700; }
   .wk { position:absolute; top:0; bottom:0; width:28px; background:rgba(128,128,128,.07); }
-  .g-r { position:relative; height:32px; }
+  .g-r { position:relative; height:32px; border-top:1px solid var(--line); }
   .g-b { position:absolute; top:6px; height:20px; border-radius:6px; background:var(--c); cursor:grab; touch-action:none; }
   .g-b .h { position:absolute; top:0; bottom:0; width:min(10px, 30%); background:rgba(255,255,255,.35); cursor:ew-resize; }
   .g-b .hl { left:0; border-radius:6px 0 0 6px; } .g-b .hr { right:0; border-radius:0 6px 6px 0; }
   .g-b.done { opacity:.4; }
-  .g-l { position:absolute; top:6px; font-size:12px; line-height:20px; white-space:nowrap; cursor:pointer; }
-  .g-l.in { position:sticky; left:14px; top:auto; display:block; width:max-content; max-width:calc(100% - 28px); margin-left:14px; overflow:hidden; text-overflow:ellipsis; color:#fff; pointer-events:none; }
-  .g-b.done .g-l.in { color:var(--fg); }
   .g-t { position:absolute; top:0; bottom:0; width:2px; background:var(--accent); }
   .ghost { position:fixed; z-index:30; max-width:70vw; padding:6px 10px; border-radius:8px; background:var(--accent); color:#fff; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; pointer-events:none; }
 
@@ -134,6 +137,25 @@
   .chip { display:flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--line); border-radius:16px; font-size:13px; text-transform:capitalize; color:var(--muted); }
   .chip.on { border-color:var(--accent); background:var(--tint); color:var(--accent); }
   .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
+  @media (hover:hover) { .r:hover, .cardi:hover, .g-n:hover { background:var(--tint); } .btn:hover { border-color:var(--accent); } .seg button:not(.on):hover, .tabbar button:hover { color:var(--fg); } .sec:hover b { color:var(--accent); } }
+  /* wide screens (computer, iPad): navigation moves to a top bar, three board columns, the add sheet becomes a centred dialog */
+  @media (min-width:820px) {
+    :root { --tab:0px; --nw:220px; }
+    body { padding-top:56px; }
+    .tabbar { top:0; bottom:auto; max-width:none; margin:0; height:56px; padding:0 16px; justify-content:center; gap:6px; border-top:0; border-bottom:1px solid var(--line); }
+    .tabbar button { flex:none; flex-direction:row; gap:8px; margin:8px 0; padding:0 18px; border-radius:8px; font-size:14px; }
+    .tabbar button.on { background:var(--tint); }
+    .top, main { max-width:960px; }
+    .top { top:56px; padding-top:14px; }
+    main { padding-bottom:110px; }
+    .fab { bottom:28px; right:28px; }
+    .pill { left:auto; right:96px; bottom:34px; width:360px; }
+    body.hasfab .pill { right:96px; }
+    .board { margin:0; padding:0 0 8px; overflow:visible; }
+    .col, .col.solo { flex:1 1 0; max-width:none; }
+    .gantt { max-height:62vh; }
+    #sheet .panel { left:50%; right:auto; bottom:auto; top:12vh; width:520px; margin:0 0 0 -260px; border-radius:16px; }
+  }
 </style>
 </head>
 <body>
@@ -348,6 +370,8 @@ function boardHtml() {
   }).join('')}</div>`;
 }
 
+const isoWeek = d => { const x = new Date(d + 'T00:00'); x.setDate(x.getDate() + 3 - (x.getDay() + 6) % 7); const y = new Date(x.getFullYear(), 0, 4); return 1 + Math.round(((x - y) / 864e5 - 3 + (y.getDay() + 6) % 7) / 7); };
+
 function ganttHtml() {
   const t = today(), ge = epicItem(gepic) ? gepic : '';
   const [withEpic, loose] = tree(it => statusOk(gfilter, it));
@@ -361,17 +385,15 @@ function ganttHtml() {
   const n = diff(lo, hi) + 1;
   const head = Array.from({ length: n }, (_, i) => addDays(lo, i));
   const weekends = head.filter(d => [0, 6].includes(new Date(d + 'T00:00').getDay())).map(d => `<i class="wk" style="left:${diff(lo, d) * DAY}px"></i>`).join('');
-  const bars = dated.map(([it, [s, e]]) => {
-    const left = diff(lo, s) * DAY, w = (diff(s, e) + 1) * DAY;
-    const inside = w >= 112; // a wide bar carries its own label, pinned to the visible left edge; a narrow one is labelled beside it
-    return `<div class="g-r"><div class="g-b ${it.status === 'done' ? 'done' : ''}" style="left:${left}px;width:${w}px;--c:var(--${esc(it.type)})" data-bar="${it.id}"><i class="h hl"></i><i class="h hr"></i>${inside ? `<span class="g-l in" data-lab="${it.id}">${esc(ganttLabel(it))}</span>` : ''}</div>
-      ${inside ? '' : `<div class="g-l" style="left:${left + w + 4}px" data-act="open" data-id="${it.id}" data-lab="${it.id}">${esc(ganttLabel(it))}</div>`}</div>`;
-  }).join('');
+  const bars = dated.map(([it, [s, e]]) => `<div class="g-r"><div class="g-b ${it.status === 'done' ? 'done' : ''}" style="left:${diff(lo, s) * DAY}px;width:${(diff(s, e) + 1) * DAY}px;--c:var(--${esc(it.type)})" data-bar="${it.id}"><i class="h hl"></i><i class="h hr"></i></div></div>`).join('');
+  // titles stay put while the chart scrolls sideways (sticky column), one 32px row per bar
+  const names = dated.map(([it, , d]) => `<div class="g-n ${it.type === 'epic' ? 'epic' : ''} ${it.status === 'done' ? 'done' : ''}" style="padding-left:${8 + d * 10}px" data-act="open" data-id="${it.id}">${typeIcon(it.type)}<span class="tt">${esc(it.title)}</span></div>`).join('');
   const none = rows.filter(r => !r[1]).map(r => rowHtml(r[0], r[2], true));
-  return seg(FILTERS, gfilter, 'gfilter') + epicSel + `<div class="gantt" id="gantt" data-x="${diff(lo, t) * DAY}" data-lo="${lo}"><div class="g-in" style="width:${n * DAY}px">${weekends}
+  return seg(FILTERS, gfilter, 'gfilter') + epicSel + `<div class="gantt" id="gantt" data-x="${diff(lo, t) * DAY}" data-lo="${lo}"><div class="g-wrap"><div class="g-names"><div class="g-hh"></div>${names}</div><div class="g-in" style="width:${n * DAY}px">${weekends}
       <div class="g-h">${head.map(d => `<div>${d.slice(8) === '01' || d === lo ? new Date(d + 'T00:00').toLocaleString([], { month: 'short' }) : ''}</div>`).join('')}</div>
+      <div class="g-h">${head.map(d => `<div class="wkn">${new Date(d + 'T00:00').getDay() === 1 ? 'W' + isoWeek(d) : ''}</div>`).join('')}</div>
       <div class="g-h">${head.map(d => `<div class="${d === t ? 'tod' : ''}">${+d.slice(8)}</div>`).join('')}</div>
-      ${bars}<div class="g-t" style="left:${diff(lo, t) * DAY + DAY / 2 - 1}px"></div></div></div>` +
+      ${bars}<div class="g-t" style="left:${diff(lo, t) * DAY + DAY / 2 - 1}px"></div></div></div></div>` +
     (rows.length ? '' : '<div class="empty"><p>Nothing matches these filters.</p></div>') +
     (none.length ? `<h2 class="sh">Unscheduled</h2><div class="muted" style="margin:-4px 4px 8px">Drag ⠿ onto the chart to schedule an item</div>${rowsCard(none)}` : '');
 }
@@ -646,9 +668,9 @@ document.onchange = e => {
 let drag = null, pick = null, suppress = 0;
 const dropDay = e => { // date under the pointer if it is over the chart, else null
   const g = $('gantt'); if (!g) return null;
-  const r = g.getBoundingClientRect();
-  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return null;
-  return addDays(g.dataset.lo, Math.floor((e.clientX - r.left + g.scrollLeft) / DAY));
+  const r = g.getBoundingClientRect(), nw = g.querySelector('.g-names').offsetWidth, x = e.clientX - r.left; // the titles column is not part of the chart
+  if (x < nw || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return null;
+  return addDays(g.dataset.lo, Math.floor((x - nw + g.scrollLeft) / DAY));
 };
 document.onpointerdown = e => {
   const gr = e.target.closest('[data-un]');
@@ -674,10 +696,11 @@ document.onpointermove = e => {
   const s = drag.mode === 'r' ? drag.s : addDays(drag.s, d), en = drag.mode === 'l' ? drag.e : addDays(drag.e, d);
   if (s > en) return;
   drag.ns = s; drag.ne = en;
-  const lo = $('gantt').dataset.lo, left = diff(lo, s) * DAY, w = (diff(s, en) + 1) * DAY, lab = document.querySelector(`[data-lab="${drag.it.id}"]`);
-  Object.assign(drag.b.style, { left: left + 'px', width: w + 'px' });
-  if (!lab.classList.contains('in')) lab.style.left = left + w + 4 + 'px'; // an in-bar label moves with its bar
-  lab.textContent =`${ganttLabel(drag.it)} · ${short(s)} – ${short(en)}`;
+  const lo = $('gantt').dataset.lo;
+  Object.assign(drag.b.style, { left: diff(lo, s) * DAY + 'px', width: (diff(s, en) + 1) * DAY + 'px' });
+  drag.tip ??= document.body.appendChild(Object.assign(document.createElement('div'), { className: 'ghost' })); // the dates, above the finger
+  drag.tip.textContent = `${drag.it.key} · ${short(s)} – ${short(en)}`;
+  Object.assign(drag.tip.style, { left: Math.max(8, e.clientX - 60) + 'px', top: Math.max(8, e.clientY - 44) + 'px' });
 };
 document.onpointerup = e => {
   if (pick) {
@@ -690,13 +713,13 @@ document.onpointerup = e => {
     return;
   }
   if (!drag) return;
-  const { it, ns, ne, moved } = drag; drag = null;
+  const { it, ns, ne, moved, tip } = drag; drag = null; tip?.remove();
   if (moved < 5) openItem(it.id);
   else if (ns) { it.start = ns; it.due = ne; persist(); }
   render();
 };
 
-document.onpointercancel = () => { pick?.ghost?.remove(); pick = drag = null; render(); };
+document.onpointercancel = () => { pick?.ghost?.remove(); drag?.tip?.remove(); pick = drag = null; render(); };
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {}); // offline: see sw.js; a failed registration just means no offline cache
 setInterval(tick, 500);
@@ -714,6 +737,7 @@ if (location.search === '?test') {
   console.assert(minutesFor(items[1]) === 35 && minutesFor(items[3]) === 10, 'parent total includes subtask');
   console.assert(JSON.stringify(sum(0, epicOf)) === '{"E":35}', 'orphan ignored, bug and subtask counted under epic');
   console.assert(JSON.stringify(span(items[0])) === '["2026-01-02","2026-01-09"]', 'epic spans children');
+  console.assert(isoWeek('2026-10-19') === 43 && isoWeek('2026-01-01') === 1, 'ISO week numbers');
   console.assert(diff('2026-01-30', '2026-02-02') === 3 && addDays('2026-01-31', 1) === '2026-02-01', 'dates');
   console.assert(minutesFor(items[0]) === 35 && fmt(65) === '1h 5m', 'epic total / fmt');
   items = [{ id: 'x', key: 'PP-7' }, { id: 'y' }]; seq = 7; fixItems();
