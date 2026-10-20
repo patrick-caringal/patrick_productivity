@@ -3,57 +3,146 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#1f2937">
+<meta name="theme-color" content="#f7f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e0f12" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Tasks">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon.png">
 <title>Tasks</title>
 <style>
-  :root { --bg:#fff; --fg:#111827; --muted:#6b7280; --card:#f3f4f6; --accent:#dc2626; --epic:#7c3aed; --task:#059669; --bug:#dc2626; --improvement:#2563eb; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#111827; --fg:#f9fafb; --muted:#9ca3af; --card:#1f2937; } }
-  body { margin:0; padding:16px 16px 80px; padding-top:max(16px,env(safe-area-inset-top)); background:var(--bg); color:var(--fg); font:16px system-ui,sans-serif; max-width:640px; margin-inline:auto; }
-  input, select, textarea, button { font:inherit; padding:10px 12px; border-radius:10px; border:1px solid var(--muted); background:var(--card); color:var(--fg); box-sizing:border-box; }
-  input, select, textarea { width:100%; margin-bottom:8px; }
-  button { cursor:pointer; }
-  button.on, button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
-  button:disabled { opacity:.5; }
-  label { display:block; flex:1; color:var(--muted); font-size:13px; }
-  .row { display:flex; gap:8px; margin-bottom:8px; }
-  .row > button { flex:1; padding:8px 4px; }
-  .item { background:var(--card); border-radius:10px; padding:10px 12px; margin:6px 0; cursor:pointer; }
-  .item small, .muted { color:var(--muted); font-size:14px; }
-  .late { color:var(--accent) !important; }
-  .badge { font-size:11px; text-transform:uppercase; padding:2px 6px; border-radius:6px; color:#fff; margin-right:6px; }
-  .epic { background:var(--epic); } .bug { background:var(--bug); } .improvement { background:var(--improvement); } .task { background:var(--task); }
-  h2 { font-size:16px; margin:20px 0 6px; }
-  .big { font-size:56px; text-align:center; font-variant-numeric:tabular-nums; margin:12px 0; }
-  .bar { background:var(--card); border-radius:6px; margin:6px 0; position:relative; padding:6px 8px; overflow:hidden; }
-  .bar i { position:absolute; inset:0 auto 0 0; background:var(--accent); opacity:.25; }
-  .bar span { position:relative; display:flex; justify-content:space-between; }
-  .foot { position:fixed; left:0; right:0; bottom:0; padding:14px 16px calc(14px + env(safe-area-inset-bottom)); background:var(--accent); color:#fff; text-align:center; cursor:pointer; }
-  .link { background:none; border:none; padding:0; color:var(--muted); }
-  .board { display:flex; gap:10px; overflow-x:auto; }
-  .col { flex:0 0 78%; }
-  .col .row { margin:6px 0 0; }
-  .gantt { overflow-x:auto; background:var(--card); border-radius:10px; }
-  .g-in { position:relative; background:repeating-linear-gradient(90deg, transparent 0 27px, rgba(128,128,128,.2) 27px 28px); }
-  .g-h { display:flex; } .g-h div { flex:none; width:28px; text-align:center; font-size:11px; color:var(--muted); white-space:nowrap; }
-  .g-r { position:relative; height:30px; }
-  .g-b { position:absolute; top:6px; height:18px; border-radius:5px; cursor:grab; touch-action:none; }
-  .g-b .h { position:absolute; top:0; bottom:0; width:10px; cursor:ew-resize; background:rgba(255,255,255,.35); }
-  .g-b .l { left:0; border-radius:5px 0 0 5px; } .g-b .r { right:0; border-radius:0 5px 5px 0; }
-  .g-b.done { opacity:.35; }
-  .g-l { position:absolute; top:6px; line-height:18px; font-size:12px; white-space:nowrap; cursor:pointer; }
+  :root { color-scheme:light dark; --bg:#f7f7f9; --surface:#fff; --line:#e6e7ec; --fg:#17181c; --muted:#868a94; --accent:#5e6ad2; --tint:rgba(94,106,210,.12);
+    --epic:#8b5cf6; --task:#3b82f6; --bug:#ef4444; --improvement:#14b8a6; --subtask:#94a3b8; --todo:#a0a4ad; --doing:#f59e0b; --done:#22c55e;
+    --tab:calc(58px + env(safe-area-inset-bottom)); }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0e0f12; --surface:#16171b; --line:#25262c; --fg:#ececf0; --muted:#80848e; --accent:#7f89ea; --tint:rgba(127,137,234,.16); } }
+  * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif; -webkit-tap-highlight-color:transparent; }
+  button, input, select, textarea { font:inherit; color:inherit; }
+  input, select, textarea { font-size:16px; } /* 16px stops iOS zooming into focused fields */
+  button { cursor:pointer; background:none; border:0; padding:0; }
+  .top, main { max-width:640px; margin-inline:auto; }
+  .top { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:8px; min-height:56px; padding:calc(8px + env(safe-area-inset-top)) 16px 8px; background:var(--bg); }
+  h1 { flex:1; margin:0; font-size:24px; font-weight:650; letter-spacing:-.02em; }
+  main { padding:4px 16px calc(var(--tab) + 96px); }
+  .hb { color:var(--accent); font-size:16px; padding:6px 4px; } .hb.danger { color:var(--bug); }
+  .btn { padding:9px 14px; border-radius:8px; border:1px solid var(--line); background:var(--surface); font-weight:550; }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; } .btn.wide { width:100%; padding:12px; } .btn:disabled { opacity:.5; }
+  .muted { color:var(--muted); font-size:13px; }
+  .k { font:12px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--muted); flex:none; }
+  .late { color:var(--bug) !important; }
+  .ti { width:16px; height:16px; flex:none; }
+  .dot { display:block; width:12px; height:12px; border-radius:50%; border:1.5px solid var(--todo); }
+  .dot.doing { border-color:var(--doing); background:conic-gradient(var(--doing) 50%, transparent 0); } .dot.done { border-color:var(--done); background:var(--done); }
+
+  .seg { display:flex; gap:2px; padding:2px; margin:4px 0 12px; background:var(--line); border-radius:9px; }
+  .seg button { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:7px 4px; border-radius:7px; color:var(--muted); font-size:13px; white-space:nowrap; font-weight:550; }
+  .seg button.on { background:var(--surface); color:var(--fg); box-shadow:0 1px 2px rgba(0,0,0,.14); }
+.hb svg { display:block; width:22px; height:22px; }
+  .sq { flex:1; min-width:0; padding:9px 12px; border:1px solid var(--line); border-radius:10px; outline:0; background:var(--surface); -webkit-appearance:none; appearance:none; }
+  .fsel { display:block; width:100%; margin:0 0 12px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  h2.sh { margin:22px 4px 8px; font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+  .empty { text-align:center; color:var(--muted); padding:40px 16px; } .empty p { margin:0 0 14px; }
+
+  .sec { display:flex; align-items:center; gap:8px; padding:14px 4px 8px; cursor:pointer; }
+  .sec b { font-weight:600; min-width:0; line-height:1.25; overflow-wrap:anywhere; } /* long epic titles wrap rather than get cut off */
+  .sec .go, .sec .plus { padding:2px 10px; font-size:20px; color:var(--muted); } .sec .plus { margin-left:auto; color:var(--accent); font-size:22px; }
+  .chev { width:14px; height:14px; flex:none; color:var(--muted); transform:rotate(-90deg); transition:transform .15s; } .chev.open { transform:none; } .chev.none { visibility:hidden; } /* nothing to fold */
+  .prog { flex:none; width:32px; height:4px; margin-left:4px; border-radius:2px; overflow:hidden; background:var(--line); } .prog i { display:block; height:100%; background:var(--done); }
+  .cnt { flex:none; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .r { position:relative; display:flex; align-items:center; gap:8px; min-height:46px; padding:0 0 0 var(--ind, 12px); border-top:1px solid var(--line); cursor:pointer; }
+  .r.sub { min-height:42px; } .r.sub .t { font-size:14px; } .r.sub .ti { width:14px; height:14px; }
+  .r.sub.nest::before { content:''; position:absolute; left:calc(var(--ind) - 13px); top:0; bottom:0; width:2px; background:var(--line); } /* guide line from the parent's icon */
+  .card > .r:first-child { border-top:0; }
+  .r .t { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; }
+  .r .tt, .r .t small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .r .t small { font-size:12px; color:var(--muted); line-height:1.3; } .r.ctx { padding-top:6px; padding-bottom:6px; }
+  .r.done .tt { color:var(--muted); text-decoration:line-through; }
+  .r .m { display:flex; align-items:center; gap:8px; flex:none; font-size:12px; color:var(--muted); }
+  .subs { display:flex; align-items:center; gap:3px; padding:14px 6px; font-size:12px; color:var(--muted); }
+  .subs svg { width:12px; height:12px; transform:rotate(-90deg); transition:transform .15s; } .subs.open svg { transform:none; }
+  .dotb, .grip { flex:none; display:grid; place-items:center; width:40px; height:46px; }
+  .grip { font-size:20px; color:var(--muted); cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none; }
+
+  .board { display:flex; gap:12px; margin:0 -16px; padding:0 16px 8px; overflow-x:auto; scroll-snap-type:x mandatory; }
+  .col { flex:0 0 82%; max-width:320px; scroll-snap-align:start; }
+  .col.solo { flex:1 1 100%; max-width:none; }
+  .colh { display:flex; align-items:center; gap:8px; margin:6px 2px 10px; font-size:13px; font-weight:600; color:var(--muted); }
+  .cardi { margin-bottom:8px; padding:10px 12px; background:var(--surface); border:1px solid var(--line); border-radius:10px; cursor:pointer; }
+  .cardi .h { display:flex; align-items:center; gap:8px; }
+  .cardi .ct { margin:8px 0 6px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .mv { display:flex; gap:6px; margin-left:auto; } .mv button { width:28px; height:28px; border:1px solid var(--line); border-radius:7px; color:var(--muted); }
+  .tag { font-size:12px; color:var(--muted); }
+
+  .gantt { max-height:52vh; overflow:auto; background:var(--surface); border:1px solid var(--line); border-radius:12px; }
+  .g-in { position:relative; min-height:150px; background-image:repeating-linear-gradient(90deg, transparent 0 27px, var(--line) 27px 28px); }
+  .g-h { position:relative; z-index:1; display:flex; } .g-h div { flex:none; width:28px; font-size:11px; line-height:18px; text-align:center; color:var(--muted); white-space:nowrap; }
+  .g-h .tod { color:var(--accent); font-weight:700; }
+  .wk { position:absolute; top:0; bottom:0; width:28px; background:rgba(128,128,128,.07); }
+  .g-r { position:relative; height:32px; }
+  .g-b { position:absolute; top:6px; height:20px; border-radius:6px; background:var(--c); cursor:grab; touch-action:none; }
+  .g-b .h { position:absolute; top:0; bottom:0; width:min(10px, 30%); background:rgba(255,255,255,.35); cursor:ew-resize; }
+  .g-b .hl { left:0; border-radius:6px 0 0 6px; } .g-b .hr { right:0; border-radius:0 6px 6px 0; }
+  .g-b.done { opacity:.4; }
+  .g-l { position:absolute; top:6px; font-size:12px; line-height:20px; white-space:nowrap; cursor:pointer; }
+  .g-l.in { position:sticky; left:14px; top:auto; display:block; width:max-content; max-width:calc(100% - 28px); margin-left:14px; overflow:hidden; text-overflow:ellipsis; color:#fff; pointer-events:none; }
+  .g-b.done .g-l.in { color:var(--fg); }
   .g-t { position:absolute; top:0; bottom:0; width:2px; background:var(--accent); }
+  .ghost { position:fixed; z-index:30; max-width:70vw; padding:6px 10px; border-radius:8px; background:var(--accent); color:#fff; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; pointer-events:none; }
+
+  .idl { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .bigtitle { width:100%; padding:6px 0 10px; border:0; outline:0; background:none; font-size:22px; font-weight:650; letter-spacing:-.01em; }
+  .props { margin:0 0 4px; padding:0 14px; background:var(--surface); border:1px solid var(--line); border-radius:12px; }
+  .prop { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:46px; border-top:1px solid var(--line); color:var(--muted); }
+  .prop:first-child { border-top:0; }
+  .prop select, .prop input { width:auto; min-width:0; max-width:62%; padding:6px 0; border:0; outline:0; background:none; text-align:right; color:var(--fg); }
+  .prop select { appearance:none; -webkit-appearance:none; }
+  .prop select[data-f=type], .prop select[data-f=priority] { text-transform:capitalize; }
+  textarea.desc { display:block; width:100%; min-height:90px; padding:12px 14px; border:1px solid var(--line); border-radius:12px; outline:0; background:var(--surface); resize:vertical; }
+  .addsub { display:flex; gap:8px; margin-top:8px; } .addsub input { flex:1; min-width:0; padding:9px 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface); outline:0; }
+  .pomo { display:flex; flex-direction:column; align-items:center; gap:12px; padding:18px 16px; background:var(--surface); border:1px solid var(--line); border-radius:12px; }
+  .ring { display:grid; place-items:center; width:148px; height:148px; border-radius:50%; background:conic-gradient(var(--accent) calc(var(--p, 0) * 1%), var(--line) 0); }
+  .ring > div { display:grid; place-items:center; width:132px; height:132px; border-radius:50%; background:var(--surface); font-size:34px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .hist { align-self:stretch; font-size:13px; color:var(--muted); }
+
+  .tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .tile { padding:14px; background:var(--surface); border:1px solid var(--line); border-radius:12px; } .tile b { display:block; font-size:26px; letter-spacing:-.02em; } .tile span { font-size:12px; color:var(--muted); }
+  .bar { position:relative; margin:6px 0; padding:8px 10px; overflow:hidden; background:var(--surface); border:1px solid var(--line); border-radius:8px; }
+  .bar i { position:absolute; inset:0 auto 0 0; background:var(--tint); } .bar span { position:relative; display:flex; justify-content:space-between; gap:8px; }
+  .data { display:flex; gap:8px; margin-bottom:8px; } .data .btn { flex:1; }
+
+  .tabbar { position:fixed; left:0; right:0; bottom:0; z-index:10; display:flex; height:var(--tab); max-width:640px; margin-inline:auto; padding-bottom:env(safe-area-inset-bottom); background:var(--surface); border-top:1px solid var(--line); }
+  .tabbar button { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:11px; color:var(--muted); } .tabbar button.on { color:var(--accent); }
+  .tabbar svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .fab { position:fixed; right:16px; bottom:calc(var(--tab) + 14px); z-index:9; width:52px; height:52px; border-radius:50%; background:var(--accent); color:#fff; font-size:28px; line-height:1; box-shadow:0 4px 14px rgba(94,106,210,.45); }
+  .pill { position:fixed; left:12px; right:12px; bottom:calc(var(--tab) + 18px); z-index:9; display:flex; align-items:center; gap:8px; height:44px; padding:0 14px; border-radius:22px; background:var(--accent); color:#fff; cursor:pointer; box-shadow:0 4px 14px rgba(94,106,210,.35); }
+  .pill span:first-child { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .pill .ft { font-variant-numeric:tabular-nums; font-weight:600; }
+  body.hasfab .pill { right:80px; }
+
+  #sheet .scrim { position:fixed; inset:0; z-index:20; background:rgba(0,0,0,.4); }
+  #sheet .panel { position:fixed; left:0; right:0; bottom:0; z-index:21; max-width:640px; max-height:90vh; margin-inline:auto; padding:16px 16px calc(16px + env(safe-area-inset-bottom)); overflow:auto; background:var(--surface); border-radius:18px 18px 0 0; box-shadow:0 -8px 30px rgba(0,0,0,.2); animation:up .18s ease-out; }
+  @keyframes up { from { transform:translateY(40px); opacity:0; } }
+  .sheet-title { width:100%; padding:8px 0 12px; border:0; outline:0; background:none; font-size:20px; font-weight:600; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  .chip { display:flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--line); border-radius:16px; font-size:13px; text-transform:capitalize; color:var(--muted); }
+  .chip.on { border-color:var(--accent); background:var(--tint); color:var(--accent); }
+  .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
 </style>
 </head>
 <body>
-<div id="app"></div>
+<header class="top" id="top"></header>
+<main id="main"></main>
+<div id="foot"></div>
+<button class="fab" id="fab" data-act="add" aria-label="Add item">+</button>
+<nav class="tabbar" id="nav"></nav>
+<div id="sheet"></div>
 
 <script>
 const WORK = 25, BREAK = 5, DAY = 28; // minutes; gantt day width in px
-const TYPES = ['epic', 'task', 'bug', 'improvement'], STATUS = ['todo', 'doing', 'done'], PRIO = ['low', 'med', 'high'];
+const KEY = 'PAT'; // issue key prefix, e.g. PAT-12
+const TYPES = ['epic', 'task', 'bug', 'improvement', 'subtask'], STATUS = ['todo', 'doing', 'done'], PRIO = ['low', 'med', 'high'];
+const LABEL = { todo: 'To do', doing: 'In progress', done: 'Done' };
 const $ = id => document.getElementById(id);
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
@@ -65,21 +154,57 @@ const diff = (a, b) => Math.round((new Date(b + 'T00:00') - new Date(a + 'T00:00
 const addDays = (s, n) => { const d = new Date(s + 'T00:00'); d.setDate(d.getDate() + n); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
 const short = s => new Date(s + 'T00:00').toLocaleDateString([], { month: 'short', day: 'numeric' });
 
-let items = load('items', []);       // {id, type, title, desc, epic, status, priority, start, due}
+let items = load('items', []);       // {id, key, type, title, desc, epic, parent, status, priority, start, due}
 let sessions = load('sessions', []); // {start, min, item} - epic/type are looked up via the item
+let seq = load('seq', 0);            // last issue number handed out; not reused after a delete
 let st = load('pomodoro-state', null); // running timer {work, item, start, end}
-let view = 'list', cur = null, filter = 'all', adding = false, isWork = true;
+let view = 'list', prev = 'list', cur = null, filter = 'open', adding = false, newType = 'task', newEpic = '', gfilter = 'open', gepic = '', bepic = '', bfilter = 'all', bdone = false, query = '', home = 'list', isWork = true; // query: the search text; home: the last main view, where Back from search returns // gfilter/gepic: the Timeline's status and epic filters; bepic/bdone: the Board's epic filter and whether its Done column is open
+const folded = load('collapsed', []);
+let collapsed = new Set(Array.isArray(folded) ? folded : []); // epic ids and task ids folded in the list (a per-device convenience)
+const peek = new Set(); // tasks whose subtasks are expanded on an epic screen; closed again on reload
 
 const byId = id => items.find(i => i.id === id);
 const epicItem = id => { const e = byId(id); return e?.type === 'epic' ? e : null; };
-const persist = () => { save('items', items); save('sessions', sessions); save('pomodoro-state', st); };
-const epicOf = it => it.type === 'epic' ? it.title : (epicItem(it.epic)?.title || 'No epic');
+const persist = () => { save('items', items); save('sessions', sessions); save('pomodoro-state', st); save('seq', seq); };
+// repairs items from older versions and exports: gives keys to items without one, moves old prefixes (PP-12) to the current one (PAT-12),
+// and turns a task that has a parent into a subtask
+const fixItems = () => items.forEach(i => {
+  i.key = i.key ? String(i.key).replace(/^[A-Za-z]+-/, `${KEY}-`) : `${KEY}-${++seq}`;
+  if (i.parent && i.type !== 'epic' && i.type !== 'subtask') i.type = 'subtask';
+});
+fixItems();
+const newItem = o => items.push({ id: (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)).slice(0, 8), key: `${KEY}-${++seq}`, desc: '', epic: null, parent: null, status: 'todo', priority: 'med', start: '', due: '', ...o });
+const canParent = i => i.type !== 'epic' && i.type !== 'subtask';
+const epicId = it => it.type === 'subtask' && byId(it.parent) ? byId(it.parent).epic : it.epic; // a subtask lives in its parent's epic
+const epicOf = it => it.type === 'epic' ? it.title : (epicItem(epicId(it))?.title || 'No epic');
+const real = i => i.type !== 'epic' && i.type !== 'subtask';
+const FILTERS = [['open', 'Open'], ['doing', 'In progress'], ['done', 'Done'], ['all', 'All']];
+const statusOk = (f, it) => f === 'all' || (f === 'open' ? it.status !== 'done' : it.status === f);
+// an epic is done when marked done or when all its tasks are done
+const epicDone = e => { const k = items.filter(i => real(i) && epicId(i) === e.id); return e.status === 'done' || (k.length > 0 && k.every(i => i.status === 'done')); };
+// does an epic belong under filter f when n of its tasks match? (a new empty epic stays under Open)
+const showEpic = (e, n, f) => f === 'all' || n > 0 || (f === 'open' ? !epicDone(e) : f === 'done' ? epicDone(e) : e.status === f);
+
+// "All epics" dropdown shared by the Board and Timeline filters
+const epicSelect = (id, v) => `<select class="fsel" id="${id}" aria-label="Filter by epic"><option value="">All epics</option>${items.filter(i => i.type === 'epic').map(e => `<option value="${e.id}" ${e.id === v ? 'selected' : ''}>${esc(e.key)} ${esc(e.title)}</option>`).join('')}</select>`;
+const chev = open => `<svg class="chev ${open ? 'open' : ''}" viewBox="0 0 14 14"><path d="m3 5 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+// [[epic and its tasks], [epic-less tasks]] as [item, depth]; subtasks nest under their parent.
+// `ok` filters tasks/subtasks; a task stays visible when one of its subtasks passes.
+function tree(ok = () => true) {
+  const top = i => i.type !== 'epic' && !(i.type === 'subtask' && byId(i.parent)) && (ok(i) || items.some(s => s.parent === i.id && ok(s)));
+  const withSubs = (i, d) => [[i, d], ...items.filter(s => s.type === 'subtask' && s.parent === i.id && ok(s)).map(s => [s, d + 1])];
+  return [
+    items.filter(i => i.type === 'epic').flatMap(e => [[e, 0], ...items.filter(i => top(i) && epicId(i) === e.id).flatMap(i => withSubs(i, 1))]),
+    items.filter(i => top(i) && !epicItem(epicId(i))).flatMap(i => withSubs(i, 0))
+  ];
+}
 
 // [start, end] of an item; an epic without its own dates spans its children
 function span(it) {
   let s = it.start || it.due, e = it.due || it.start;
   if (!s && it.type === 'epic') {
-    const k = items.filter(i => i.epic === it.id).map(span).filter(Boolean);
+    const k = items.filter(i => epicId(i) === it.id).map(span).filter(Boolean);
     if (k.length) { s = k.map(x => x[0]).sort()[0]; e = k.map(x => x[1]).sort().pop(); }
   }
   return s ? [s, e] : null;
@@ -94,7 +219,8 @@ function sum(since, key) {
   }
   return o;
 }
-const minutesFor = it => sessions.filter(s => s.item === it.id || (it.type === 'epic' && byId(s.item)?.epic === it.id)).reduce((a, s) => a + s.min, 0);
+// an item's total includes its subtasks; an epic's includes all its tasks and subtasks
+const minutesFor = it => sessions.reduce((a, s) => { const x = byId(s.item); return a + (x && (x.id === it.id || x.parent === it.id || epicId(x) === it.id) ? s.min : 0); }, 0);
 
 function beep() {
   navigator.vibrate?.([300, 100, 300]);
@@ -110,90 +236,153 @@ function tick() {
   if (st && Date.now() >= st.end) return finish();
   const t = mmss(st ? Math.max(0, Math.ceil((st.end - Date.now()) / 1000)) : (isWork ? WORK : BREAK) * 60);
   document.querySelectorAll('.ft').forEach(e => e.textContent = t);
+  const pct = st ? (1 - (st.end - Date.now()) / (st.end - st.start)) * 100 : 0;
+  document.querySelectorAll('.ring').forEach(r => r.style.setProperty('--p', pct));
   document.title = st ? t : 'Tasks';
 }
 
+// ---- markup helpers
+const GLYPH = {
+  epic: '<path d="M8.6 2.5 4.5 8.6h3L7 13.5l4.5-6.2h-3z" fill="#fff"/>',
+  task: '<path d="m4.6 8.4 2.2 2.2 4.6-4.8" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  bug: '<circle cx="8" cy="8" r="3" fill="#fff"/>',
+  improvement: '<path d="M8 11.5v-7m0 0L5.2 7.3M8 4.5l2.8 2.8" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  subtask: '<path d="M5.5 4.5v4h5m0 0L8.6 6.6m1.9 1.9L8.6 10.4" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+};
+const typeIcon = t => `<svg class="ti" viewBox="0 0 16 16" role="img" aria-label="${esc(t)}"><rect width="16" height="16" rx="4" style="fill:var(--${esc(t)})"/>${GLYPH[t] ?? ''}</svg>`;
+const dot = s => `<i class="dot ${esc(s)}"></i>`;
+const ganttLabel = it => `${it.type === 'subtask' ? '↳ ' : ''}${it.key} ${it.title}`;
+const seg = (opts, on, act) => `<div class="seg">${opts.map(([v, l, pre = '']) => `<button data-act="${act}" data-id="${v}" class="${on === v ? 'on' : ''}">${pre}${l}</button>`).join('')}</div>`;
 const barsHtml = o => {
   const max = Math.max(1, ...Object.values(o));
   return Object.entries(o).sort((a, b) => b[1] - a[1]).map(([k, v]) =>
-    `<div class="bar"><i style="width:${v / max * 100}%"></i><span><b>${esc(k)}</b><b>${fmt(v)}</b></span></div>`).join('') || '<div class="muted">Nothing yet</div>';
-};
-const VIEWS = { list: 'List', board: 'Board', gantt: 'Gantt', stats: 'Time' };
-const tabs = () => `<div class="row">${Object.entries(VIEWS).map(([v, l]) => `<button data-act="tab" data-id="${v}" class="${view === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-const rowHtml = it => {
-  const late = it.due && it.status !== 'done' && it.due < today();
-  const meta = [it.status, it.priority && it.priority !== 'med' ? it.priority : '', it.due ? 'due ' + short(it.due) : '', minutesFor(it) ? fmt(minutesFor(it)) : ''].filter(Boolean).join(' · ');
-  return `<div class="item" data-act="open" data-id="${it.id}"><span class="badge ${it.type}">${it.type}</span>${esc(it.title)}<br><small class="${late ? 'late' : ''}">${meta}</small></div>`;
+    `<div class="bar"><i style="width:${v / max * 100}%"></i><span><b>${esc(k)}</b><b>${fmt(v)}</b></span></div>`).join('') || '<div class="muted" style="padding:0 4px">Nothing yet</div>';
 };
 
+const rowHtml = (it, d = 0, grip = false, exp, ctx = false) => { // exp: undefined = plain count, else a fold toggle showing whether subtasks are expanded
+  const subs = items.filter(s => s.parent === it.id), late = it.due && it.status !== 'done' && it.due < today();
+  const cnt = `${subs.filter(s => s.status === 'done').length}/${subs.length}`;
+  const meta = (subs.length ? (exp === undefined ? `<span>${cnt}</span>` : `<button class="subs ${exp ? 'open' : ''}" data-act="subs" data-id="${it.id}" aria-label="${exp ? 'Hide' : 'Show'} subtasks">${cnt}<svg viewBox="0 0 14 14"><path d="m3 5 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`) : '')
+    + (it.priority === 'high' ? '<span class="late">↑</span>' : it.priority === 'low' ? '<span>↓</span>' : '')
+    + (it.due ? `<span class="${late ? 'late' : ''}">${short(it.due)}</span>` : '');
+  return `<div class="r ${it.status === 'done' ? 'done' : ''} ${it.type === 'subtask' ? 'sub' : ''} ${d > 0 ? 'nest' : ''} ${ctx ? 'ctx' : ''}" style="--ind:${12 + d * 20}px" data-act="open" data-id="${it.id}">${typeIcon(it.type)}<span class="k">${esc(it.key)}</span><span class="t"><span class="tt">${esc(it.title)}</span>${ctx ? `<small>${esc(epicOf(it))}</small>` : ''}</span><span class="m">${meta}</span>`
+    + (grip ? `<span class="grip" data-un="${it.id}" title="Drag onto the chart">⠿</span>`
+      : `<button class="dotb" data-act="cycle" data-id="${it.id}" aria-label="${LABEL[it.status] ?? esc(it.status)}, tap to change">${dot(it.status)}</button>`) + '</div>';
+};
+const rowsCard = list => list.length ? `<div class="card">${list.join('')}</div>` : '';
+
+const secHead = (id, icon, key, title, done, total, openId, n) =>
+  `<div class="sec" data-act="fold" data-id="${id}"><svg class="chev ${collapsed.has(id) ? '' : 'open'} ${n ? '' : 'none'}" viewBox="0 0 14 14"><path d="m3 5 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>${icon}${key ? `<span class="k">${esc(key)}</span>` : ''}<b>${esc(title)}</b><span class="prog"><i style="width:${total ? done / total * 100 : 0}%"></i></span><span class="cnt">${done}/${total}</span><button class="plus" data-act="addto" data-id="${id}" aria-label="Add to ${esc(title)}">+</button>${openId ? `<button class="go" data-act="open" data-id="${openId}" aria-label="Open epic">›</button>` : ''}</div>`;
+
+// ---- views
 function listHtml() {
-  const epics = items.filter(i => i.type === 'epic');
-  const shown = it => filter === 'all' || it.status === filter;
-  const kids = e => items.filter(i => i.type !== 'epic' && i.epic === e.id && shown(i));
-  const orphans = items.filter(i => i.type !== 'epic' && !epicItem(i.epic) && shown(i));
-  return tabs() +
-    `<div class="row">${['all', ...STATUS].map(f => `<button data-act="filter" data-id="${f}" class="${filter === f ? 'on' : ''}">${f}</button>`).join('')}</div>` +
-    (adding
-      ? `<input id="nt" placeholder="Title" aria-label="Title">
-         <div class="row"><select id="ntype" aria-label="Type">${TYPES.map(t => `<option value="${t}" ${t === 'task' ? 'selected' : ''}>${t}</option>`).join('')}</select>
-         <select id="nepic" aria-label="Epic"><option value="">No epic</option>${epics.map(e => `<option value="${e.id}">${esc(e.title)}</option>`).join('')}</select></div>
-         <div class="row"><label>Start<input id="ns" type="date"></label><label>Due<input id="nd" type="date"></label></div>
-         <div class="row"><button class="primary" data-act="create">Add</button><button data-act="add">Cancel</button></div>`
-      : `<button class="primary" data-act="add" style="width:100%">+ Add</button>`) +
-    epics.map(e => rowHtml(e) + kids(e).map(rowHtml).join('')).join('') +
-    (orphans.length ? `<h2>No epic</h2>${orphans.map(rowHtml).join('')}` : '') +
-    (items.length ? '' : '<p class="muted">No items yet. Add an epic, then tasks, bugs and improvements under it.</p>');
+  const [grouped, loose] = tree(it => statusOk(filter, it));
+  const secs = [];
+  const hidden = it => it.type === 'subtask' && collapsed.has(it.parent); // its task is folded
+  for (const [it, d] of grouped) { if (it.type === 'epic') secs.push({ e: it, rows: [] }); else if (!hidden(it)) secs[secs.length - 1].rows.push(rowHtml(it, d - 1, false, !collapsed.has(it.id))); }
+  const shown = secs.filter(({ e, rows }) => showEpic(e, rows.length, filter));
+  const none = loose.filter(([it]) => !hidden(it)).map(([it, d]) => rowHtml(it, d, false, !collapsed.has(it.id)));
+  const prog = list => [list.filter(i => i.status === 'done').length, list.length];
+  const block = (id, head, rows) => head + (collapsed.has(id) ? '' : rowsCard(rows));
+  return seg(FILTERS, filter, 'filter') +
+    shown.map(({ e, rows }) => block(e.id, secHead(e.id, typeIcon('epic'), e.key, e.title, ...prog(items.filter(i => real(i) && epicId(i) === e.id)), e.id, rows.length), rows)).join('') +
+    (none.length ? block('none', secHead('none', '', '', 'No epic', ...prog(items.filter(i => real(i) && !epicItem(epicId(i)))), undefined, none.length), none) : '') +
+    (shown.length || none.length ? '' : items.length ? '<div class="empty"><p>Nothing in this view.</p></div>'
+      : '<div class="empty"><p>No items yet.</p><button class="btn primary" data-act="addepic">Create your first epic</button></div>');
+}
+
+const norm = s => String(s).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase(); // so "economia" finds "Economía"
+const SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+function searchHtml() { // every word must appear in the title, description or epic of an item (or equal its key), whatever its status
+  const q = norm(query).trim();
+  if (!q) return '<div class="empty"><p>Search titles, descriptions, keys and epics.</p></div>';
+  const words = q.split(/\s+/), hits = items.filter(it => { const hay = norm([it.title, it.desc, epicOf(it)].join(' ')); return words.every(w => hay.includes(w) || norm(it.key) === w); }); // a key matches only when typed in full (pat-3), not as a stray digit
+  return `<div class="muted" style="margin:4px 4px 8px">${hits.length} result${hits.length === 1 ? '' : 's'}${hits.length > 50 ? ', showing 50' : ''}</div>` +
+    rowsCard(hits.slice(0, 50).map(it => rowHtml(it, 0, false, undefined, true)));
 }
 
 function boardHtml() {
-  return tabs() + `<div class="board">${STATUS.map((s, i) => `<div class="col"><h2>${s}</h2>${items.filter(x => x.type !== 'epic' && x.status === s).map(x =>
-    `<div class="item" data-act="open" data-id="${x.id}"><span class="badge ${x.type}">${x.type}</span>${esc(x.title)}<br><small>${esc(epicOf(x))}${x.due ? ' · due ' + short(x.due) : ''}</small>
-     <div class="row">${i ? `<button data-act="move" data-id="${x.id}" data-to="${STATUS[i - 1]}">←</button>` : ''}${i < 2 ? `<button data-act="move" data-id="${x.id}" data-to="${STATUS[i + 1]}">→</button>` : ''}</div></div>`).join('')}</div>`).join('')}</div>`;
+  const bge = epicItem(bepic) ? bepic : '';
+  const base = items.filter(x => real(x) && (!bge || epicId(x) === bge)); // tasks only; subtasks live under their task
+  const solo = STATUS.filter(s => statusOk(bfilter, { status: s })).length === 1; // one column left: let it use the full width
+  return seg(FILTERS, bfilter, 'bfilter') + epicSelect('bepic', bge) + `<div class="board">${STATUS.map((s, i) => {
+    if (!statusOk(bfilter, { status: s })) return '';
+    const all = bfilter === 'all', col = base.filter(x => x.status === s), fold = s === 'done' && !bdone && all; // Done folds only on the full board
+    return `<div class="col ${solo ? 'solo' : ''}"><div class="colh" ${s === 'done' && all ? 'data-act="bdone" style="cursor:pointer"' : ''}>${dot(s)}${LABEL[s]}<span class="cnt">${col.length}</span>${s === 'done' && all ? chev(!fold) : ''}</div>${fold ? '' : col.map(x => {
+      const subs = items.filter(u => u.parent === x.id);
+      return `<div class="cardi" data-act="open" data-id="${x.id}"><div class="h">${typeIcon(x.type)}<span class="k">${esc(x.key)}</span><span class="mv">${i ? `<button data-act="move" data-id="${x.id}" data-to="${STATUS[i - 1]}" aria-label="Move to ${LABEL[STATUS[i - 1]]}">‹</button>` : ''}${i < 2 ? `<button data-act="move" data-id="${x.id}" data-to="${STATUS[i + 1]}" aria-label="Move to ${LABEL[STATUS[i + 1]]}">›</button>` : ''}</span></div>
+       <div class="ct">${esc(x.title)}</div><div class="tag">${esc(epicOf(x))}${x.due ? ` · <span class="${x.status !== 'done' && x.due < today() ? 'late' : ''}">${short(x.due)}</span>` : ''}${subs.length ? ` · ${subs.filter(u => u.status === 'done').length}/${subs.length}` : ''}</div></div>`;
+    }).join('')}</div>`;
+  }).join('')}</div>`;
 }
 
 function ganttHtml() {
-  const t = today(), epics = items.filter(i => i.type === 'epic');
-  const order = [...epics.flatMap(e => [e, ...items.filter(i => i.type !== 'epic' && i.epic === e.id)]), ...items.filter(i => i.type !== 'epic' && !epicItem(i.epic))];
-  const rows = order.map(it => [it, span(it)]);
+  const t = today(), ge = epicItem(gepic) ? gepic : '';
+  const [withEpic, loose] = tree(it => statusOk(gfilter, it));
+  const groups = [];
+  for (const [it, d] of withEpic) { if (it.type === 'epic') groups.push({ e: it, rows: [] }); else groups[groups.length - 1].rows.push([it, d]); }
+  const kept = groups.filter(({ e, rows }) => (!ge || e.id === ge) && showEpic(e, rows.length, gfilter));
+  const rows = [...kept.flatMap(({ e, rows }) => [[e, 0], ...rows]), ...(ge ? [] : loose)].map(([it, d]) => [it, span(it), d]);
+  const epicSel = epicSelect('gepic', ge);
   const dated = rows.filter(r => r[1]);
-  const lo = addDays([t, ...dated.map(r => r[1][0])].sort()[0], -1), hi = addDays([t, ...dated.map(r => r[1][1])].sort().pop(), 6);
+  const lo = addDays([t, ...dated.map(r => r[1][0])].sort()[0], -1), hi = addDays([t, ...dated.map(r => r[1][1])].sort().pop(), 13); // spare weeks to drop items onto
   const n = diff(lo, hi) + 1;
   const head = Array.from({ length: n }, (_, i) => addDays(lo, i));
+  const weekends = head.filter(d => [0, 6].includes(new Date(d + 'T00:00').getDay())).map(d => `<i class="wk" style="left:${diff(lo, d) * DAY}px"></i>`).join('');
   const bars = dated.map(([it, [s, e]]) => {
     const left = diff(lo, s) * DAY, w = (diff(s, e) + 1) * DAY;
-    return `<div class="g-r"><div class="g-b ${it.type} ${it.status === 'done' ? 'done' : ''}" style="left:${left}px;width:${w}px" data-bar="${it.id}"><i class="h l"></i><i class="h r"></i></div>
-      <div class="g-l" style="left:${left + w + 4}px" data-act="open" data-id="${it.id}" data-lab="${it.id}">${esc(it.title)}</div></div>`;
+    const inside = w >= 112; // a wide bar carries its own label, pinned to the visible left edge; a narrow one is labelled beside it
+    return `<div class="g-r"><div class="g-b ${it.status === 'done' ? 'done' : ''}" style="left:${left}px;width:${w}px;--c:var(--${esc(it.type)})" data-bar="${it.id}"><i class="h hl"></i><i class="h hr"></i>${inside ? `<span class="g-l in" data-lab="${it.id}">${esc(ganttLabel(it))}</span>` : ''}</div>
+      ${inside ? '' : `<div class="g-l" style="left:${left + w + 4}px" data-act="open" data-id="${it.id}" data-lab="${it.id}">${esc(ganttLabel(it))}</div>`}</div>`;
   }).join('');
-  const none = rows.filter(r => !r[1]).map(r => rowHtml(r[0])).join('');
-  return tabs() + (dated.length
-    ? `<div class="gantt" id="gantt" data-x="${diff(lo, t) * DAY}" data-lo="${lo}"><div class="g-in" style="width:${n * DAY}px">
-        <div class="g-h">${head.map(d => `<div>${d.slice(8) === '01' || d === lo ? new Date(d + 'T00:00').toLocaleString([], { month: 'short' }) : ''}</div>`).join('')}</div>
-        <div class="g-h">${head.map(d => `<div>${+d.slice(8)}</div>`).join('')}</div>
-        ${bars}<div class="g-t" style="left:${diff(lo, t) * DAY + DAY / 2 - 1}px"></div></div></div>`
-    : '<p class="muted">Give items a start or due date and they show up here.</p>') +
-    (none ? `<h2>Unscheduled</h2>${none}` : '');
+  const none = rows.filter(r => !r[1]).map(r => rowHtml(r[0], r[2], true));
+  return seg(FILTERS, gfilter, 'gfilter') + epicSel + `<div class="gantt" id="gantt" data-x="${diff(lo, t) * DAY}" data-lo="${lo}"><div class="g-in" style="width:${n * DAY}px">${weekends}
+      <div class="g-h">${head.map(d => `<div>${d.slice(8) === '01' || d === lo ? new Date(d + 'T00:00').toLocaleString([], { month: 'short' }) : ''}</div>`).join('')}</div>
+      <div class="g-h">${head.map(d => `<div class="${d === t ? 'tod' : ''}">${+d.slice(8)}</div>`).join('')}</div>
+      ${bars}<div class="g-t" style="left:${diff(lo, t) * DAY + DAY / 2 - 1}px"></div></div></div>` +
+    (rows.length ? '' : '<div class="empty"><p>Nothing matches these filters.</p></div>') +
+    (none.length ? `<h2 class="sh">Unscheduled</h2><div class="muted" style="margin:-4px 4px 8px">Drag ⠿ onto the chart to schedule an item</div>${rowsCard(none)}` : '');
 }
 
+const epicRows = e => { // an epic's tasks; a task's subtasks show only once expanded
+  const out = []; let on = false;
+  for (const [i, d] of tree()[0]) {
+    if (i.type === 'epic') on = i.id === e.id;
+    else if (on && (i.type !== 'subtask' || peek.has(i.parent))) out.push(rowHtml(i, d - 1, false, peek.has(i.id)));
+  }
+  return out;
+};
+
 function itemHtml() {
-  const it = byId(cur);
-  if (!it) { view = 'list'; return listHtml(); }
-  const running = st && st.item === cur, busy = st && !running;
+  const it = byId(cur), running = st && st.item === cur, busy = st && !running;
   const sel = (f, opts, v) => `<select data-f="${f}" aria-label="${f}">${opts.map(o => `<option ${o === v ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
   const hist = sessions.filter(s => s.item === cur).slice(-10).reverse();
-  return `<button class="link" data-act="back">← Back</button>
-    <input data-f="title" value="${esc(it.title)}" aria-label="Title" style="font-size:20px;margin-top:12px">
-    <div class="row">${STATUS.map(s => `<button data-act="status" data-id="${s}" class="${it.status === s ? 'on' : ''}">${s}</button>`).join('')}</div>
-    <div class="row"><label>Type${sel('type', TYPES, it.type)}</label><label>Priority${sel('priority', PRIO, it.priority || 'med')}</label></div>
-    ${it.type === 'epic' ? '' : `<label>Epic<select data-f="epic"><option value="">No epic</option>${items.filter(i => i.type === 'epic').map(e => `<option value="${e.id}" ${e.id === it.epic ? 'selected' : ''}>${esc(e.title)}</option>`).join('')}</select></label>`}
-    <div class="row"><label>Start<input type="date" data-f="start" value="${it.start || ''}"></label><label>Due<input type="date" data-f="due" value="${it.due || ''}"></label></div>
-    <label>Description<textarea data-f="desc" rows="3">${esc(it.desc || '')}</textarea></label>
-    ${it.type === 'epic' ? `<h2>Items</h2>${items.filter(i => i.epic === it.id).map(rowHtml).join('') || '<div class="muted">None yet</div>'}` : ''}
-    <h2>Pomodoro · total ${fmt(minutesFor(it))}</h2>
-    <div class="big ${running ? 'ft' : ''}">${running ? '' : mmss((isWork ? WORK : BREAK) * 60)}</div>
-    <div class="muted" style="text-align:center">${running ? (st.work ? 'Focus' : 'Break') : (isWork ? 'Focus' : 'Break')}</div>
-    <div class="row" style="margin-top:12px"><button class="primary" data-act="${running ? 'stop' : 'start'}" ${busy ? 'disabled' : ''}>${running ? 'Stop' : busy ? 'Timer running on another item' : 'Start'}</button></div>
-    <div class="muted">${hist.map(s => `<div>${new Date(s.start).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · ${s.min}m</div>`).join('')}</div>
-    <p><button class="link" data-act="del">Delete</button></p>`;
+  const opts = (list, v) => list.map(p => `<option value="${p.id}" ${p.id === v ? 'selected' : ''}>${esc(p.key)} ${esc(p.title)}</option>`).join('');
+  return `<div class="idl">${typeIcon(it.type)}<span class="k">${esc(it.key)}</span></div>
+    <input class="bigtitle" data-f="title" value="${esc(it.title)}" aria-label="Title">
+    ${seg(STATUS.map(s => [s, LABEL[s], dot(s)]), it.status, 'status')}
+    <div class="props">
+      <label class="prop"><span>Type</span>${sel('type', TYPES, it.type)}</label>
+      <label class="prop"><span>Priority</span>${sel('priority', PRIO, it.priority || 'med')}</label>
+      ${it.type === 'epic' ? '' : it.type === 'subtask'
+        ? `<label class="prop"><span>Parent</span><select data-f="parent"><option value="">None</option>${opts(items.filter(canParent), it.parent)}</select></label>`
+        : `<label class="prop"><span>Epic</span><select data-f="epic"><option value="">None</option>${opts(items.filter(i => i.type === 'epic'), it.epic)}</select></label>`}
+      <label class="prop"><span>Start</span><input type="date" data-f="start" value="${it.start || ''}"></label>
+      <label class="prop"><span>Due</span><input type="date" data-f="due" value="${it.due || ''}"></label>
+    </div>
+    <h2 class="sh">Description</h2>
+    <textarea class="desc" data-f="desc" rows="3" placeholder="Add details">${esc(it.desc || '')}</textarea>
+    ${it.type === 'epic' ? `<h2 class="sh">Items</h2>${rowsCard(epicRows(it)) || '<div class="muted" style="padding:0 4px">None yet</div>'}
+      <div class="addsub"><input id="st" placeholder="New task" aria-label="New task"><button class="btn" data-act="addsub">Add</button></div>` : ''}
+    ${canParent(it) ? `<h2 class="sh">Subtasks</h2>${rowsCard(items.filter(s => s.parent === it.id).map(s => rowHtml(s)))}
+      <div class="addsub"><input id="st" placeholder="New subtask" aria-label="New subtask"><button class="btn" data-act="addsub">Add</button></div>` : ''}
+    <h2 class="sh">Pomodoro · ${fmt(minutesFor(it))} total</h2>
+    <div class="pomo">
+      <div class="ring"><div class="${running ? 'ft' : ''}">${running ? '' : mmss((isWork ? WORK : BREAK) * 60)}</div></div>
+      <div class="muted">${running ? (st.work ? 'Focus' : 'Break') : (isWork ? 'Focus' : 'Break')}</div>
+      <button class="btn primary wide" data-act="${running ? 'stop' : 'start'}" ${busy ? 'disabled' : ''}>${running ? 'Stop' : busy ? 'Timer running on another item' : 'Start'}</button>
+      <div class="hist">${hist.map(s => `<div>${new Date(s.start).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · ${s.min}m</div>`).join('')}</div>
+    </div>`;
 }
 
 function statsHtml() {
@@ -201,19 +390,41 @@ function statsHtml() {
   const wk = new Date(day); wk.setDate(day.getDate() - ((day.getDay() + 6) % 7)); // Monday
   const tot = o => fmt(Object.values(o).reduce((a, b) => a + b, 0));
   const td = sum(+day, epicOf), w = sum(+wk, epicOf);
-  return tabs() + `<h2>Today: ${tot(td)}</h2>${barsHtml(td)}
-    <h2>This week: ${tot(w)} · by epic</h2>${barsHtml(w)}
-    <h2>This week · by type</h2>${barsHtml(sum(+wk, it => it.type))}
-    <h2>This week · top items</h2>${barsHtml(sum(+wk, it => it.title))}
-    <h2>Data</h2>
-    <div class="row"><button data-act="export">Export</button><button data-act="import">Import</button></div>
+  return `<div class="tiles"><div class="tile"><b>${tot(td)}</b><span>Today</span></div><div class="tile"><b>${tot(w)}</b><span>This week</span></div></div>
+    <h2 class="sh">Today · by epic</h2>${barsHtml(td)}
+    <h2 class="sh">This week · by epic</h2>${barsHtml(w)}
+    <h2 class="sh">This week · by type</h2>${barsHtml(sum(+wk, it => it.type))}
+    <h2 class="sh">This week · top items</h2>${barsHtml(sum(+wk, it => it.title))}
+    <h2 class="sh">Data</h2>
+    <div class="data"><button class="btn" data-act="export">Export</button><button class="btn" data-act="import">Import</button></div>
     <input type="file" id="file" accept="application/json,.json" hidden>
-    <div class="muted">Export saves a .json file. Import replaces this device's data with a file.</div>`;
+    <div class="muted" style="padding:0 4px">Export saves a .json file. Import replaces this device's data with a file.</div>`;
+}
+
+const sheetHtml = () => {
+  const hideEpic = newType === 'epic' || newType === 'subtask';
+  return `<div class="scrim" data-act="add"></div><div class="panel">
+    <input class="sheet-title" id="nt" placeholder="What needs doing?" aria-label="Title" autocomplete="off">
+    <input type="hidden" id="ntype" value="${newType}">
+    <div class="chips">${['task', 'bug', 'improvement', 'subtask', 'epic'].map(t => `<button class="chip ${t === newType ? 'on' : ''}" data-act="ntype" data-id="${t}">${typeIcon(t)}${t}</button>`).join('')}</div>
+    <div class="props">
+      <label class="prop" id="lepic" ${hideEpic ? 'hidden' : ''}><span>Epic</span><select id="nepic"><option value="">None</option>${items.filter(i => i.type === 'epic').map(e => `<option value="${e.id}" ${e.id === newEpic ? 'selected' : ''}>${esc(e.key)} ${esc(e.title)}</option>`).join('')}</select></label>
+      <label class="prop" id="lpar" ${newType === 'subtask' ? '' : 'hidden'}><span>Parent</span><select id="npar"><option value="">Pick a task</option>${items.filter(canParent).map(p => `<option value="${p.id}">${esc(p.key)} ${esc(p.title)}</option>`).join('')}</select></label>
+      <label class="prop"><span>Start</span><input id="ns" type="date"></label>
+      <label class="prop"><span>Due</span><input id="nd" type="date"></label>
+    </div>
+    <div class="actions"><button class="btn" data-act="add">Cancel</button><button class="btn primary" data-act="create">Create</button></div>
+  </div>`;
+};
+function setNewType(t) { // no re-render, so what is already typed in the sheet stays
+  newType = t; $('ntype').value = t;
+  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.id === t));
+  $('lepic').hidden = t === 'epic' || t === 'subtask'; $('lpar').hidden = t !== 'subtask';
 }
 
 function exportData() {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([JSON.stringify({ items, sessions }, null, 2)], { type: 'application/json' }));
+  a.href = URL.createObjectURL(new Blob([JSON.stringify({ items, sessions, seq }, null, 2)], { type: 'application/json' }));
   a.download = `tasks-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
@@ -224,37 +435,82 @@ async function importFile(f) {
     if (!Array.isArray(d.items) || !Array.isArray(d.sessions)) throw 0;
     if (!confirm(`Replace this device's data with ${d.items.length} items and ${d.sessions.length} sessions?`)) return render();
     items = d.items; sessions = d.sessions;
+    seq = Math.max(d.seq | 0, ...items.map(i => parseInt(String(i.key).split('-')[1]) || 0)); fixItems();
     if (st && !byId(st.item)) st = null;
     persist();
   } catch { alert('Not a valid export file'); }
   render();
 }
 
+// ---- shell
+const NAV = {
+  list: ['Items', '<path d="M8 6h12M8 12h12M8 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/>'],
+  board: ['Board', '<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="10" rx="1.5"/><rect x="17" y="4" width="4" height="13" rx="1.5"/>'],
+  gantt: ['Timeline', '<path d="M4 6h8M8 12h12M6 18h9" stroke-width="3"/>'],
+  stats: ['Time', '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M9.5 3h5"/>']
+};
+function openItem(id) { if (view !== 'item') prev = view; view = 'item'; cur = id; scrollTo(0, 0); }
+
 function render() {
-  const foot = st && !(view === 'item' && cur === st.item)
-    ? `<div class="foot" data-act="open" data-id="${st.item}">▶ ${esc(byId(st.item)?.title ?? '')} · <span class="ft"></span></div>` : '';
-  const kept = $('gantt')?.scrollLeft; // a redraw after a drag must not jump the chart
-  $('app').innerHTML = ({ list: listHtml, board: boardHtml, gantt: ganttHtml, stats: statsHtml, item: itemHtml })[view]() + foot;
-  const g = $('gantt'); if (g) g.scrollLeft = kept ?? g.dataset.x - 60; // else start near today
+  if (view === 'item' && !byId(cur)) view = prev; // the item was deleted
+  if (NAV[view]) home = view;
+  const at = view === 'item' || view === 'search' ? home : view;
+  $('top').innerHTML = view === 'item'
+    ? '<button class="hb" data-act="back">‹ Back</button><button class="hb danger" data-act="del" style="margin-left:auto">Delete</button>'
+    : view === 'search'
+      ? `<button class="hb" data-act="back" aria-label="Back">‹</button><input class="sq" id="q" type="search" placeholder="Search items" aria-label="Search" autocomplete="off" value="${esc(query)}">`
+      : `<h1>${NAV[view][0]}</h1><button class="hb" data-act="search" aria-label="Search">${SEARCH}</button>`;
+  $('nav').innerHTML = Object.entries(NAV).map(([v, [l, p]]) => `<button data-act="tab" data-id="${v}" class="${at === v ? 'on' : ''}"><svg viewBox="0 0 24 24" aria-hidden="true">${p}</svg><span>${l}</span></button>`).join('');
+  const old = $('gantt'), kept = old && [old.scrollLeft, old.scrollTop]; // a redraw after a drag must not jump the chart
+  $('main').innerHTML = ({ list: listHtml, board: boardHtml, gantt: ganttHtml, stats: statsHtml, item: itemHtml, search: searchHtml })[view]();
+  if (view === 'search') $('q').focus();
+  const g = $('gantt'); if (g) { g.scrollLeft = kept ? kept[0] : g.dataset.x - 60; if (kept) g.scrollTop = kept[1]; } // else start near today
+  const fab = view === 'list' || view === 'board' || view === 'gantt';
+  $('fab').hidden = !fab; document.body.classList.toggle('hasfab', fab);
+  $('foot').innerHTML = st && !(view === 'item' && cur === st.item)
+    ? `<div class="pill" data-act="open" data-id="${st.item}"><span>▶ ${esc(byId(st.item)?.title ?? '')}</span><span class="ft"></span></div>` : '';
+  if (!adding) $('sheet').innerHTML = '';
+  else if (!$('sheet').innerHTML) { $('sheet').innerHTML = sheetHtml(); $('nt').focus(); }
   tick();
 }
 
 document.onclick = e => {
+  if (Date.now() < suppress) return; // the click that ends a drag-to-schedule must not open the item
   const b = e.target.closest('button[data-act], div[data-act]'); if (!b) return;
   const { act, id } = b.dataset, it = byId(cur);
-  if (act === 'tab') { view = id; cur = null; }
+  if (act === 'tab') { view = id; cur = null; scrollTo(0, 0); }
   else if (act === 'export') return exportData();
   else if (act === 'import') return $('file').click(); // no render: it would drop the file input mid-dialog
+  else if (act === 'ntype') return setNewType(id);
   else if (act === 'filter') filter = id;
-  else if (act === 'add') adding = !adding;
+  else if (act === 'gfilter') gfilter = id;
+  else if (act === 'bfilter') bfilter = id;
+  else if (act === 'bdone') bdone = !bdone;
+  else if (act === 'fold') { collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id); save('collapsed', [...collapsed]); }
+  else if (act === 'subs') {
+    const set = view === 'item' ? peek : collapsed; // the epic screen opens subtasks, the list folds them
+    set.has(id) ? set.delete(id) : set.add(id);
+    if (set === collapsed) save('collapsed', [...collapsed]);
+  }
+  else if (act === 'cycle') byId(id).status = STATUS[(STATUS.indexOf(byId(id).status) + 1) % STATUS.length];
+  else if (act === 'add') { adding = !adding; newType = 'task'; newEpic = ''; }
+  else if (act === 'addepic') { adding = true; newType = 'epic'; newEpic = ''; }
+  else if (act === 'addto') { adding = true; newType = 'task'; newEpic = id === 'none' ? '' : id; } // + on a list section: new task in that epic
   else if (act === 'create') {
-    const title = $('nt').value.trim(), type = $('ntype').value, start = $('ns').value;
+    const title = $('nt').value.trim(), type = $('ntype').value, start = $('ns').value, parent = $('npar').value || null;
     if (!title) return $('nt').focus();
-    items.push({ id: crypto.randomUUID().slice(0, 8), type, title, desc: '', epic: type === 'epic' ? null : $('nepic').value || null, status: 'todo', priority: 'med', start, due: $('nd').value < start ? start : $('nd').value });
+    if (type === 'subtask' && !parent) return $('npar').focus();
+    newItem({ type, title, start, epic: type === 'epic' || type === 'subtask' ? null : $('nepic').value || null, parent: type === 'subtask' ? parent : null, due: $('nd').value < start ? start : $('nd').value });
     adding = false;
   }
-  else if (act === 'open') { view = 'item'; cur = id; }
-  else if (act === 'back') { view = 'list'; cur = null; }
+  else if (act === 'addsub') {
+    const title = $('st').value.trim();
+    if (!title) return $('st').focus();
+    newItem(it.type === 'epic' ? { type: 'task', title, epic: cur } : { type: 'subtask', title, parent: cur });
+  }
+  else if (act === 'open') openItem(id);
+  else if (act === 'search') { view = 'search'; scrollTo(0, 0); }
+  else if (act === 'back') { view = view === 'search' ? home : prev; cur = null; scrollTo(0, 0); }
   else if (act === 'status') it.status = id;
   else if (act === 'move') byId(id).status = b.dataset.to;
   else if (act === 'start' && !st) {
@@ -264,34 +520,61 @@ document.onclick = e => {
   else if (act === 'stop') st = null; // stopping early logs nothing
   else if (act === 'del' && confirm(`Delete "${it.title}"?`)) {
     items = items.filter(i => i.id !== cur);
-    items.forEach(i => { if (i.epic === cur) i.epic = null; });
+    items.forEach(i => { if (i.epic === cur) i.epic = null; if (i.parent === cur) i.parent = null; });
     if (st?.item === cur) st = null;
-    view = 'list'; cur = null;
+    view = prev; cur = null;
   }
   persist(); render();
 };
+document.onkeydown = e => { // Enter submits the quick-add boxes and the sheet title
+  const b = e.key === 'Enter' && { st: 'addsub', nt: 'create' }[e.target.id];
+  if (b) document.querySelector(`[data-act=${b}]`).click();
+};
+document.oninput = e => { if (e.target.id === 'q') { query = e.target.value; $('main').innerHTML = searchHtml(); } }; // live results; only the list is redrawn so the field keeps focus
 document.onchange = e => {
   const f = e.target.dataset.f, v = e.target.value;
   if (e.target.id === 'file') return importFile(e.target.files[0]);
-  if (e.target.id === 'ntype') return void ($('nepic').hidden = v === 'epic');
+  if (e.target.id === 'gepic') { gepic = v; return render(); }
+  if (e.target.id === 'bepic') { bepic = v; return render(); }
   if (!f) return;
   const it = byId(cur);
   if (f === 'title' && !v.trim()) return render();
-  it[f] = f === 'epic' ? v || null : v;
-  if (f === 'type' && v === 'epic') it.epic = null;
+  it[f] = f === 'epic' || f === 'parent' ? v || null : v;
+  if (f === 'type') { // subtasks nest one level only, and epics have no parent
+    if (v !== 'subtask') it.parent = null;
+    if (v === 'subtask' || v === 'epic') { it.epic = null; items.forEach(i => { if (i.parent === it.id) i.parent = null; }); }
+  }
   if (it.start && it.due && it.due < it.start) it[f === 'start' ? 'due' : 'start'] = v; // keep start <= due
   persist(); render();
 };
 
-// gantt: drag a bar to move it, drag an edge to change start/due, tap to open; snaps to whole days
-let drag = null;
+// gantt: drag a bar to move it, drag an edge to change start/due, tap to open; snaps to whole days.
+// Drag an unscheduled item's grip onto the chart to give it a one-day slot on that date.
+let drag = null, pick = null, suppress = 0;
+const dropDay = e => { // date under the pointer if it is over the chart, else null
+  const g = $('gantt'); if (!g) return null;
+  const r = g.getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return null;
+  return addDays(g.dataset.lo, Math.floor((e.clientX - r.left + g.scrollLeft) / DAY));
+};
 document.onpointerdown = e => {
+  const gr = e.target.closest('[data-un]');
+  if (gr) { pick = { it: byId(gr.dataset.un), x: e.clientX, y: e.clientY }; return void gr.setPointerCapture(e.pointerId); }
   const b = e.target.closest('[data-bar]'); if (!b) return;
   const it = byId(b.dataset.bar), [s, en] = span(it);
-  drag = { it, b, x: e.clientX, s, e: en, mode: e.target.classList.contains('l') ? 'l' : e.target.classList.contains('r') ? 'r' : 'm', moved: 0 };
+  drag = { it, b, x: e.clientX, s, e: en, mode: e.target.classList.contains('hl') ? 'l' : e.target.classList.contains('hr') ? 'r' : 'm', moved: 0 };
   b.setPointerCapture(e.pointerId);
 };
 document.onpointermove = e => {
+  if (pick) {
+    if (!pick.ghost && Math.hypot(e.clientX - pick.x, e.clientY - pick.y) > 5) pick.ghost = document.body.appendChild(Object.assign(document.createElement('div'), { className: 'ghost' }));
+    if (pick.ghost) {
+      const d = dropDay(e);
+      pick.ghost.textContent = `${pick.it.key} ${pick.it.title}${d ? ' → ' + short(d) : ''}`;
+      Object.assign(pick.ghost.style, { left: e.clientX + 12 + 'px', top: e.clientY - 12 + 'px' });
+    }
+    return;
+  }
   if (!drag) return;
   drag.moved = Math.max(drag.moved, Math.abs(e.clientX - drag.x));
   const d = Math.round((e.clientX - drag.x) / DAY);
@@ -300,15 +583,27 @@ document.onpointermove = e => {
   drag.ns = s; drag.ne = en;
   const lo = $('gantt').dataset.lo, left = diff(lo, s) * DAY, w = (diff(s, en) + 1) * DAY, lab = document.querySelector(`[data-lab="${drag.it.id}"]`);
   Object.assign(drag.b.style, { left: left + 'px', width: w + 'px' });
-  lab.style.left = left + w + 4 + 'px'; lab.textContent = `${drag.it.title} · ${short(s)} – ${short(en)}`;
+  if (!lab.classList.contains('in')) lab.style.left = left + w + 4 + 'px'; // an in-bar label moves with its bar
+  lab.textContent =`${ganttLabel(drag.it)} · ${short(s)} – ${short(en)}`;
 };
-document.onpointerup = () => {
+document.onpointerup = e => {
+  if (pick) {
+    const { it, ghost } = pick; pick = null;
+    if (ghost) { // a real drag, not a tap: swallow the click that follows
+      ghost.remove(); suppress = Date.now() + 300;
+      const d = dropDay(e);
+      if (d) { it.start = it.due = d; persist(); render(); }
+    }
+    return;
+  }
   if (!drag) return;
   const { it, ns, ne, moved } = drag; drag = null;
-  if (moved < 5) { view = 'item'; cur = it.id; }
+  if (moved < 5) openItem(it.id);
   else if (ns) { it.start = ns; it.due = ne; persist(); }
   render();
 };
+
+document.onpointercancel = () => { pick?.ghost?.remove(); pick = drag = null; render(); };
 
 setInterval(tick, 500);
 document.addEventListener('visibilitychange', tick);
@@ -316,14 +611,22 @@ render();
 
 // self-check: ?test in the URL
 if (location.search === '?test') {
-  const keep = [items, sessions];
-  items = [{ id: 'e', type: 'epic', title: 'E', epic: null }, { id: 't', type: 'bug', title: 'T', epic: 'e', start: '2026-01-02', due: '2026-01-05' }, { id: 'u', type: 'task', title: 'U', epic: 'e', due: '2026-01-09' }];
-  sessions = [{ start: 1, min: 25, item: 't' }, { start: 1, min: 25, item: 'gone' }];
-  console.assert(JSON.stringify(sum(0, epicOf)) === '{"E":25}', 'orphan ignored, bug counted under epic');
+  const keep = [items, sessions, seq];
+  items = [{ id: 'e', type: 'epic', title: 'E', epic: null }, { id: 't', type: 'bug', title: 'T', epic: 'e', start: '2026-01-02', due: '2026-01-05' }, { id: 'u', type: 'task', title: 'U', epic: 'e', due: '2026-01-09' }, { id: 's', type: 'subtask', title: 'S', parent: 't' }];
+  sessions = [{ start: 1, min: 25, item: 't' }, { start: 1, min: 25, item: 'gone' }, { start: 1, min: 10, item: 's' }];
+  seq = 0; fixItems();
+  console.assert(items.map(i => i.key).join() === 'PAT-1,PAT-2,PAT-3,PAT-4' && seq === 4, 'keys assigned in order');
+  console.assert(tree()[0].map(([i, d]) => i.id + d).join() === 'e0,t1,s2,u1', 'subtask nests under its parent, inside the epic');
+  console.assert(minutesFor(items[1]) === 35 && minutesFor(items[3]) === 10, 'parent total includes subtask');
+  console.assert(JSON.stringify(sum(0, epicOf)) === '{"E":35}', 'orphan ignored, bug and subtask counted under epic');
   console.assert(JSON.stringify(span(items[0])) === '["2026-01-02","2026-01-09"]', 'epic spans children');
   console.assert(diff('2026-01-30', '2026-02-02') === 3 && addDays('2026-01-31', 1) === '2026-02-01', 'dates');
-  console.assert(minutesFor(items[0]) === 25 && fmt(65) === '1h 5m', 'epic total / fmt');
-  [items, sessions] = keep; console.log('ok');
+  console.assert(minutesFor(items[0]) === 35 && fmt(65) === '1h 5m', 'epic total / fmt');
+  items = [{ id: 'x', key: 'PP-7' }, { id: 'y' }]; seq = 7; fixItems();
+  console.assert(items[0].key === 'PAT-7' && items[1].key === 'PAT-8', 'PP keys renamed, new ones continue the count');
+  items = [{ id: 'p', type: 'task', key: 'PAT-1' }, { id: 'c', type: 'task', key: 'PAT-2', parent: 'p' }]; fixItems();
+  console.assert(items[0].type === 'task' && items[1].type === 'subtask', 'a task with a parent becomes a subtask');
+  [items, sessions, seq] = keep; console.log('ok');
 }
 </script>
 </body>
